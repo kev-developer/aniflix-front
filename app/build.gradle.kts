@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace = "com.desApp.desapp_aniflix"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.desApp.desapp_aniflix"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
