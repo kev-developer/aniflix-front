@@ -1,7 +1,11 @@
 package com.desApp.desapp_aniflix.ui.screens
 
 import android.net.Uri
+import android.util.Log
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -9,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.*
@@ -24,9 +29,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import com.desApp.desapp_aniflix.auth.ProfileManager
 import com.desApp.desapp_aniflix.model.ContentItem
+import com.desApp.desapp_aniflix.model.Episode
 import com.desApp.desapp_aniflix.network.ContentRetrofitClient
+import com.desApp.desapp_aniflix.network.HistoryRetrofitClient
 import com.desApp.desapp_aniflix.ui.CatalogViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun DetailScreen(
@@ -37,8 +46,44 @@ fun DetailScreen(
 ) {
     var contentItem by remember { mutableStateOf<ContentItem?>(null) }
     var isLoading by remember { mutableStateOf(true) }
+    // Continue watching state
+    var initialProgress by remember { mutableDoubleStateOf(0.0) }
+    var selectedEpisode by remember { mutableStateOf<Episode?>(null) }
+    var selectedSeasonIndex by remember { mutableIntStateOf(0) }
 
     val genres by viewModel.genres.collectAsState()
+    val scope = rememberCoroutineScope()
+
+    // Función helper para navegar al player con un episodio específico
+    fun navigateToPlayer(ep: Episode?, resetProgress: Boolean = false) {
+        val item = contentItem ?: return
+        val vPath = if (item.contentType == "serie" && ep != null) {
+            ep.videoUrl ?: ""
+        } else {
+            item.videoUrl ?: ""
+        }
+        val epTitle = if (item.contentType == "serie" && ep != null) {
+            ep.title ?: item.title
+        } else {
+            item.title
+        }
+        val encodedTitle = Uri.encode(epTitle)
+        // Obtener el número de temporada real desde seasons[] (los episodios de la API no tienen seasonNumber)
+        val seasonNum = if (item.contentType == "serie" && item.seasons != null) {
+            item.seasons.getOrNull(selectedSeasonIndex)?.number ?: (selectedSeasonIndex + 1)
+        } else 0
+        val episodeNum = ep?.episodeNumber ?: ep?.number ?: 1
+        val progress = if (resetProgress) 0.0 else initialProgress
+        navController.navigate(
+            "player/${contentType}/${contentId}" +
+                    "?videoPath=${Uri.encode(vPath)}" +
+                    "&title=${encodedTitle}" +
+                    "&initialProgress=${progress}" +
+                    "&seasonNumber=${seasonNum}" +
+                    "&episodeNumber=${episodeNum}" +
+                    "&episodeTitle=${Uri.encode(epTitle)}"
+        )
+    }
 
     LaunchedEffect(contentType, contentId) {
         if (contentId != null) {
@@ -48,9 +93,73 @@ fun DetailScreen(
                     "pelicula" -> ContentRetrofitClient.contentApiService.getMovie(contentId)
                     else -> null
                 }
-                contentItem = response?.data
+                val item = response?.data
+                contentItem = item
+
+                // Para series, cargar continue watching para saber episodio y progreso
+                if (contentType == "serie" && item != null && item.seasons != null) {
+                    val profileId = ProfileManager.currentProfileId
+                    Log.d("DetailScreen", "profileId=$profileId, contentId=$contentId")
+                    if (profileId != null) {
+                        try {
+                            val cwResponse = HistoryRetrofitClient.historyApiService
+                                .getContinueWatching(profileId, 50)
+                            Log.d("DetailScreen", "CW response count=${cwResponse.count}, data=${cwResponse.data.size}")
+                            if (cwResponse.data.isNotEmpty()) {
+                                cwResponse.data.forEach { cw ->
+                                    Log.d("DetailScreen", "  CW item: contentId=${cw.contentId}, progress=${cw.progress}, cwEp=${cw.currentEpisode}")
+                                }
+                            }
+                            val entry = cwResponse.data.find { it.contentId == contentId }
+                            Log.d("DetailScreen", "Found entry for contentId=$contentId? ${entry != null}")
+                            if (entry != null) {
+                                Log.d("DetailScreen", "Entry progress=${entry.progress}, currentEpisode=${entry.currentEpisode}")
+                                initialProgress = entry.progress
+                                val cwEp = entry.currentEpisode
+                                if (cwEp != null) {
+                                    Log.d("DetailScreen", "cwEp: seasonNumber=${cwEp.seasonNumber}, episodeNumber=${cwEp.episodeNumber}, title=${cwEp.title}, videoUrl=${cwEp.videoUrl}")
+                                    // Firestore guarda seasonNumber como número real (1, 2, 3...),
+                                    // convertir a índice 0-based del array seasons[]
+                                    val seasonIdx = if (cwEp.seasonNumber != null && cwEp.seasonNumber > 0) {
+                                        (cwEp.seasonNumber - 1).coerceIn(0, item.seasons.size - 1)
+                                    } else {
+                                        0
+                                    }
+                                    Log.d("DetailScreen", "Seasons size=${item.seasons.size}, seasonIdx=$seasonIdx")
+                                    selectedSeasonIndex = seasonIdx
+
+                                    // Buscar episodio completo en la temporada para obtener videoUrl
+                                    val seasonEpisodes = item.seasons[seasonIdx]?.episodes
+                                    val seasonNumber = item.seasons[seasonIdx]?.number ?: (seasonIdx + 1)
+                                    Log.d("DetailScreen", "Season array idx=$seasonIdx (seasonNumber=$seasonNumber) has ${seasonEpisodes?.size} episodes")
+                                    val matchedEp = seasonEpisodes
+                                        ?.find { it.number == cwEp.episodeNumber }
+                                    Log.d("DetailScreen", "Matched episode: ${matchedEp?.let { "number=${it.number}, title=${it.title}, videoUrl=${it.videoUrl}" } ?: "null"}")
+                                    selectedEpisode = matchedEp ?: cwEp
+                                } else {
+                                    Log.d("DetailScreen", "currentEpisode is null in CW entry")
+                                }
+                            } else {
+                                Log.d("DetailScreen", "No CW entry found for contentId=$contentId")
+                            }
+                        } catch (e: Exception) {
+                            Log.e("DetailScreen", "Error loading continue watching", e)
+                        }
+                    } else {
+                        Log.d("DetailScreen", "profileId is null, skipping CW load")
+                    }
+
+                    // Si no hay episodio seleccionado de continue watching, usar el primero
+                    if (selectedEpisode == null) {
+                        Log.d("DetailScreen", "No episode selected, defaulting to first episode")
+                        selectedEpisode = item.seasons
+                            ?.firstOrNull()?.episodes?.firstOrNull()
+                    }
+                } else {
+                    Log.d("DetailScreen", "Not a serie or no seasons: contentType=$contentType, item!=null=${item != null}, seasons!=null=${item?.seasons != null}")
+                }
             } catch (e: Exception) {
-                // Handle error
+                Log.e("DetailScreen", "Error loading content", e)
             } finally {
                 isLoading = false
             }
@@ -62,6 +171,11 @@ fun DetailScreen(
         contentItem?.genres?.mapNotNull { genreId ->
             genres.find { it.id == genreId }?.name
         } ?: emptyList()
+    }
+
+    // Episodios de la temporada seleccionada
+    val currentSeasonEpisodes = remember(contentItem, selectedSeasonIndex) {
+        contentItem?.seasons?.getOrNull(selectedSeasonIndex)?.episodes ?: emptyList()
     }
 
     if (isLoading) {
@@ -77,6 +191,7 @@ fun DetailScreen(
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
             ) {
+                // ── Header / Cover ────────────────────────────────────────
                 Box(modifier = Modifier.fillMaxWidth().height(450.dp)) {
                     AsyncImage(
                         model = item.coverImage ?: item.thumbnail,
@@ -85,7 +200,6 @@ fun DetailScreen(
                         contentScale = ContentScale.Crop
                     )
 
-                    // Gradient overlay
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -101,6 +215,7 @@ fun DetailScreen(
                     )
                 }
 
+                // ── Info ──────────────────────────────────────────────────
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                     Text(
                         text = item.title,
@@ -137,12 +252,9 @@ fun DetailScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
+                    // ── Botón Ver Ahora / Seguir Viendo ──────────────────
                     Button(
-                        onClick = {
-                            val videoPath = item.videoUrl ?: ""
-                            val encodedTitle = Uri.encode(item.title)
-                            navController.navigate("player/${contentType}/${contentId}?videoPath=${videoPath}&title=${encodedTitle}")
-                        },
+                        onClick = { navigateToPlayer(selectedEpisode) },
                         modifier = Modifier.fillMaxWidth().height(45.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color.White,
@@ -152,7 +264,11 @@ fun DetailScreen(
                     ) {
                         Icon(Icons.Default.PlayArrow, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Ver Ahora", fontWeight = FontWeight.Bold)
+                        if (initialProgress > 0.0) {
+                            Text("Seguir Viendo", fontWeight = FontWeight.Bold)
+                        } else {
+                            Text("Ver Ahora", fontWeight = FontWeight.Bold)
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -169,7 +285,7 @@ fun DetailScreen(
                         Text("Ver más tarde", fontWeight = FontWeight.Bold)
                     }
 
-                    // Descripción
+                    // ── Descripción ──────────────────────────────────────
                     if (!item.description.isNullOrBlank()) {
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
@@ -181,7 +297,7 @@ fun DetailScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Géneros
+                    // ── Géneros ──────────────────────────────────────────
                     if (genreNames.isNotEmpty()) {
                         Text(
                             text = "Géneros: ${genreNames.joinToString(", ")}",
@@ -190,20 +306,121 @@ fun DetailScreen(
                         )
                     }
 
-                    // Temporadas (solo para series)
-                    if (item.contentType == "serie" && item.seasonCount != null && item.seasonCount > 0) {
-                        Spacer(modifier = Modifier.height(4.dp))
+                    // ── Selector de Temporadas y Episodios ────────────────
+                    if (item.contentType == "serie" && !item.seasons.isNullOrEmpty()) {
+                        Spacer(modifier = Modifier.height(24.dp))
                         Text(
-                            text = "Temporadas: ${item.seasonCount}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.LightGray
+                            text = "Episodios",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
                         )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Selector de temporada
+                        val seasonCount = item.seasons.size
+                        if (seasonCount > 1) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.horizontalScroll(rememberScrollState())
+                            ) {
+                                item.seasons.forEachIndexed { index, season ->
+                                    FilterChip(
+                                        selected = index == selectedSeasonIndex,
+                                        onClick = { selectedSeasonIndex = index },
+                                        label = {
+                                            Text("Temporada ${season.number ?: index + 1}")
+                                        },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = Color(0xFFE50914),
+                                            selectedLabelColor = Color.White,
+                                            containerColor = Color(0xFF333333),
+                                            labelColor = Color.LightGray
+                                        )
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+
+                        // Lista de episodios de la temporada seleccionada
+                        if (currentSeasonEpisodes.isNotEmpty()) {
+                            currentSeasonEpisodes.forEach { episode ->
+                                val isSelected = selectedEpisode?.let {
+                                    it.videoUrl == episode.videoUrl
+                                } ?: (episode == currentSeasonEpisodes.firstOrNull())
+
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp)
+                                        .clickable {
+                                            // Click en episodio → navegar directo al reproductor
+                                            selectedEpisode = episode
+                                            navigateToPlayer(episode, resetProgress = true)
+                                        },
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (isSelected) Color(0xFF1A1A1A) else Color(0xFF121212)
+                                    ),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        // Icono de selección
+                                        if (isSelected) {
+                                            Icon(
+                                                imageVector = Icons.Default.CheckCircle,
+                                                contentDescription = "Seleccionado",
+                                                tint = Color(0xFFE50914),
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                        } else {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(24.dp)
+                                                    .border(
+                                                        width = 2.dp,
+                                                        color = Color.Gray,
+                                                        shape = CircleShape
+                                                    )
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.width(12.dp))
+
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "EP ${episode.number ?: ""}: ${episode.title ?: "Sin título"}",
+                                                color = if (isSelected) Color.White else Color.LightGray,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                fontSize = 14.sp,
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+
+                                        Icon(
+                                            Icons.Default.PlayArrow,
+                                            contentDescription = "Reproducir",
+                                            tint = if (isSelected) Color(0xFFE50914) else Color.Gray,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(32.dp))
                 }
             }
 
+            // ── Botón de retroceso ───────────────────────────────────────
             IconButton(
                 onClick = { navController.popBackStack() },
                 modifier = Modifier

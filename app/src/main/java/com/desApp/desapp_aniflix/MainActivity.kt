@@ -94,17 +94,32 @@ class MainActivity : ComponentActivity() {
                             DetailScreen(contentType, contentId, catalogViewModel, navController)
                         }
                         composable(
-                            "player/{contentType}/{contentId}?videoPath={videoPath}&title={title}",
+                            "player/{contentType}/{contentId}?videoPath={videoPath}&title={title}&initialProgress={initialProgress}&seasonNumber={seasonNumber}&episodeNumber={episodeNumber}&episodeTitle={episodeTitle}",
                             arguments = listOf(
                                 navArgument("videoPath") { type = NavType.StringType; defaultValue = "" },
-                                navArgument("title") { type = NavType.StringType; defaultValue = "" }
+                                navArgument("title") { type = NavType.StringType; defaultValue = "" },
+                                navArgument("initialProgress") { type = NavType.FloatType; defaultValue = 0f },
+                                navArgument("seasonNumber") { type = NavType.IntType; defaultValue = 0 },
+                                navArgument("episodeNumber") { type = NavType.IntType; defaultValue = 1 },
+                                navArgument("episodeTitle") { type = NavType.StringType; defaultValue = "" }
                             )
                         ) { backStackEntry ->
                             val contentType = backStackEntry.arguments?.getString("contentType")
                             val contentId = backStackEntry.arguments?.getString("contentId")
                             val videoPath = backStackEntry.arguments?.getString("videoPath")
                             val title = backStackEntry.arguments?.getString("title")
-                            VideoPlayerScreen(contentType, contentId, videoPath, title, navController)
+                            val initialProgress = backStackEntry.arguments?.getFloat("initialProgress")?.toDouble() ?: 0.0
+                            val seasonNumber = backStackEntry.arguments?.getInt("seasonNumber") ?: 0
+                            val episodeNumber = backStackEntry.arguments?.getInt("episodeNumber") ?: 1
+                            val episodeTitle = backStackEntry.arguments?.getString("episodeTitle")
+                            VideoPlayerScreen(
+                                contentType, contentId, videoPath, title,
+                                initialProgress = initialProgress,
+                                seasonNumber = seasonNumber,
+                                episodeNumber = episodeNumber,
+                                episodeTitle = episodeTitle,
+                                navController = navController
+                            )
                         }
                     }
                 }

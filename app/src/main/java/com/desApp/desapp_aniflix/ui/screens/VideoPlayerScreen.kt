@@ -2,13 +2,11 @@ package com.desApp.desapp_aniflix.ui.screens
 
 import android.net.Uri
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,16 +27,30 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.navigation.NavController
+import com.desApp.desapp_aniflix.auth.ProfileManager
+import com.desApp.desapp_aniflix.model.Episode
+import com.desApp.desapp_aniflix.model.UpdateContinueWatchingRequest
+import com.desApp.desapp_aniflix.network.HistoryRetrofitClient
 import com.desApp.desapp_aniflix.network.VideoRetrofitClient
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 /**
  * Pantalla de reproducción de video con ExoPlayer.
+ * Soporta:
+ * - Reproducción desde donde se quedó (initialProgress)
+ * - Guardado periódico de progreso (cada 5 segundos)
+ * - Guardado al salir
  *
  * @param contentType "serie" o "pelicula"
  * @param contentId ID del documento en Firestore
- * @param videoPath Ruta del video en S3 (ej: "videos/movies/xxx.mp4")
- * @param title Título del contenido
+ * @param videoPath Ruta del video en S3
+ * @param title Título del episodio/contenido
+ * @param initialProgress Progreso inicial 0.0-1.0 para reanudar
+ * @param seasonNumber Número de temporada (para series)
+ * @param episodeNumber Número de episodio (para series)
+ * @param episodeTitle Título del episodio (para series)
  */
 @Composable
 fun VideoPlayerScreen(
@@ -46,11 +58,19 @@ fun VideoPlayerScreen(
     contentId: String?,
     videoPath: String?,
     title: String?,
+    initialProgress: Double = 0.0,
+    seasonNumber: Int = 0,
+    episodeNumber: Int = 1,
+    episodeTitle: String? = null,
     navController: NavController
 ) {
     var signedUrl by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var hasSeeked by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     // Obtener URL firmada desde el backend
     LaunchedEffect(videoPath) {
@@ -69,12 +89,9 @@ fun VideoPlayerScreen(
         }
     }
 
-    val context = LocalContext.current
-
     // Crear ExoPlayer cuando tengamos la URL firmada
     val exoPlayer = remember(signedUrl) {
         signedUrl?.let { url ->
-            // DataSource con X-Requested-With para CloudFront (validate-referer)
             val dataSourceFactory = DefaultHttpDataSource.Factory()
                 .setDefaultRequestProperties(
                     mapOf("X-Requested-With" to "com.desApp.desapp_aniflix")
@@ -88,7 +105,67 @@ fun VideoPlayerScreen(
                     setMediaItem(mediaItem)
                     prepare()
                     playWhenReady = true
+
+                    // Listener para seek al progreso inicial cuando el video esté listo
+                    addListener(object : Player.Listener {
+                        override fun onPlaybackStateChanged(playbackState: Int) {
+                            if (playbackState == Player.STATE_READY && !hasSeeked && initialProgress > 0.0) {
+                                val duration = duration
+                                if (duration > 0) {
+                                    val seekPosition = (initialProgress * duration).toLong()
+                                    seekTo(seekPosition)
+                                    hasSeeked = true
+                                }
+                            }
+                        }
+                    })
                 }
+        }
+    }
+
+    // ── Guardado periódico de progreso (cada 5 segundos) ─────────────────
+    LaunchedEffect(exoPlayer) {
+        if (exoPlayer == null) return@LaunchedEffect
+
+        while (isActive) {
+            delay(5000) // Cada 5 segundos
+            val player = exoPlayer
+            val profileId = ProfileManager.currentProfileId ?: continue
+            val cId = contentId ?: continue
+
+            if (player.isPlaying) {
+                val duration = player.duration
+                val currentPos = player.currentPosition
+                if (duration > 0) {
+                    val progress = currentPos.toDouble() / duration.toDouble()
+
+                    scope.launch {
+                        try {
+                            val episodeData = if (contentType == "serie") {
+                                Episode(
+                                    seasonNumber = seasonNumber,
+                                    episodeNumber = episodeNumber,
+                                    title = episodeTitle ?: title,
+                                    videoUrl = videoPath
+                                )
+                            } else null
+
+                            HistoryRetrofitClient.historyApiService.updateContinueWatching(
+                                UpdateContinueWatchingRequest(
+                                    profileId = profileId,
+                                    contentId = cId,
+                                    contentType = contentType ?: "",
+                                    progress = progress.coerceIn(0.0, 1.0),
+                                    duration = duration / 1000,
+                                    currentEpisode = episodeData
+                                )
+                            )
+                        } catch (_: Exception) {
+                            // Silenciar errores de guardado
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -106,7 +183,6 @@ fun VideoPlayerScreen(
     ) {
         when {
             isLoading -> {
-                // Estado de carga - obtener URL firmada
                 Column(
                     modifier = Modifier.fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -123,7 +199,6 @@ fun VideoPlayerScreen(
             }
 
             errorMessage != null -> {
-                // Estado de error
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -131,10 +206,7 @@ fun VideoPlayerScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Text(
-                        text = "⚠️",
-                        fontSize = 48.sp
-                    )
+                    Text(text = "⚠️", fontSize = 48.sp)
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         text = errorMessage ?: "Error desconocido",
@@ -156,13 +228,12 @@ fun VideoPlayerScreen(
             }
 
             exoPlayer != null && signedUrl != null -> {
-                // Reproductor de video
                 Box(modifier = Modifier.fillMaxSize()) {
                     AndroidView(
                         factory = { ctx ->
                             PlayerView(ctx).apply {
                                 player = exoPlayer
-                                useController = true // Controles estándar de ExoPlayer
+                                useController = true
                                 setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
                                 resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                                 controllerAutoShow = true
@@ -172,9 +243,42 @@ fun VideoPlayerScreen(
                         modifier = Modifier.fillMaxSize()
                     )
 
-                    // Botón de retroceso (flotante sobre el video)
+                    // Botón de retroceso — guarda progreso antes de salir
                     IconButton(
                         onClick = {
+                            // Guardar progreso antes de salir
+                            scope.launch {
+                                val profileId = ProfileManager.currentProfileId
+                                val cId = contentId
+                                if (profileId != null && cId != null) {
+                                    val duration = exoPlayer.duration
+                                    val currentPos = exoPlayer.currentPosition
+                                    if (duration > 0) {
+                                        val progress = currentPos.toDouble() / duration.toDouble()
+                                        try {
+                                            val episodeData = if (contentType == "serie") {
+                                                Episode(
+                                                    seasonNumber = seasonNumber,
+                                                    episodeNumber = episodeNumber,
+                                                    title = episodeTitle ?: title,
+                                                    videoUrl = videoPath
+                                                )
+                                            } else null
+
+                                            HistoryRetrofitClient.historyApiService.updateContinueWatching(
+                                                UpdateContinueWatchingRequest(
+                                                    profileId = profileId,
+                                                    contentId = cId,
+                                                    contentType = contentType ?: "",
+                                                    progress = progress.coerceIn(0.0, 1.0),
+                                                    duration = duration / 1000,
+                                                    currentEpisode = episodeData
+                                                )
+                                            )
+                                        } catch (_: Exception) {}
+                                    }
+                                }
+                            }
                             exoPlayer.stop()
                             navController.popBackStack()
                         },
@@ -191,7 +295,7 @@ fun VideoPlayerScreen(
                         )
                     }
 
-                    // Título del contenido (esquina superior izquierda, debajo del botón back)
+                    // Título del contenido
                     if (!title.isNullOrBlank()) {
                         Text(
                             text = title,
