@@ -13,6 +13,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
 import retrofit2.http.DELETE
+import java.util.concurrent.TimeUnit
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
@@ -73,6 +74,9 @@ object HistoryRetrofitClient {
     }
 
     private val okHttpClient = OkHttpClient.Builder()
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
         .addInterceptor(authInterceptor)
         .addInterceptor(cloudFrontInterceptor)
         .build()

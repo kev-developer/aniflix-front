@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,6 +26,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -176,6 +178,60 @@ fun DetailScreen(
     // Episodios de la temporada seleccionada
     val currentSeasonEpisodes = remember(contentItem, selectedSeasonIndex) {
         contentItem?.seasons?.getOrNull(selectedSeasonIndex)?.episodes ?: emptyList()
+    }
+
+    // Estado de error: si no está cargando y contentItem es null, mostrar error con retry
+    var retryTrigger by remember { mutableIntStateOf(0) }
+    LaunchedEffect(contentType, contentId, retryTrigger) {
+        if (contentId != null && retryTrigger > 0) {
+            try {
+                isLoading = true
+                val response = when (contentType) {
+                    "serie" -> ContentRetrofitClient.contentApiService.getSeries(contentId)
+                    "pelicula" -> ContentRetrofitClient.contentApiService.getMovie(contentId)
+                    else -> null
+                }
+                val item = response?.data
+                contentItem = item
+
+                // Para series, cargar continue watching
+                if (contentType == "serie" && item != null && item.seasons != null) {
+                    val profileId = ProfileManager.currentProfileId
+                    if (profileId != null) {
+                        try {
+                            val cwResponse = HistoryRetrofitClient.historyApiService
+                                .getContinueWatching(profileId, 50)
+                            val entry = cwResponse.data.find { it.contentId == contentId }
+                            if (entry != null) {
+                                initialProgress = entry.progress
+                                val cwEp = entry.currentEpisode
+                                if (cwEp != null) {
+                                    val seasonIdx = if (cwEp.seasonNumber != null && cwEp.seasonNumber > 0) {
+                                        (cwEp.seasonNumber - 1).coerceIn(0, item.seasons.size - 1)
+                                    } else {
+                                        0
+                                    }
+                                    selectedSeasonIndex = seasonIdx
+                                    val matchedEp = item.seasons[seasonIdx]?.episodes
+                                        ?.find { it.number == cwEp.episodeNumber }
+                                    selectedEpisode = matchedEp ?: cwEp
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.e("DetailScreen", "Error loading continue watching on retry", e)
+                        }
+                    }
+                    if (selectedEpisode == null) {
+                        selectedEpisode = item.seasons
+                            ?.firstOrNull()?.episodes?.firstOrNull()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("DetailScreen", "Error loading content on retry", e)
+            } finally {
+                isLoading = false
+            }
+        }
     }
 
     if (isLoading) {
@@ -430,6 +486,52 @@ fun DetailScreen(
                     .background(Color.Black.copy(alpha = 0.4f))
             ) {
                 Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = Color.White)
+            }
+        }
+    } else {
+        // Error state: mostrar mensaje de error con opción de reintentar
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "Error al cargar contenido",
+                    color = Color.Gray,
+                    fontSize = 18.sp,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Verifica tu conexión e intenta de nuevo",
+                    color = Color.DarkGray,
+                    fontSize = 14.sp,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Button(
+                    onClick = { retryTrigger++ },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFE50914),
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Reintentar")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Reintentar", fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedButton(
+                    onClick = { navController.popBackStack() },
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.Gray),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text("Volver", fontWeight = FontWeight.Bold)
+                }
             }
         }
     }

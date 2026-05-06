@@ -10,6 +10,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
 import retrofit2.http.Path
 import retrofit2.http.Query
+import java.util.concurrent.TimeUnit
 
 /**
  * Interceptor que añade el header X-Requested-With para la validación
@@ -42,6 +43,9 @@ object ContentRetrofitClient {
     private const val BASE_URL = "https://aniflix-backend-xd7c.onrender.com/"
 
     private val okHttpClient = OkHttpClient.Builder()
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
         .addInterceptor(cloudFrontInterceptor)
         .build()
 
