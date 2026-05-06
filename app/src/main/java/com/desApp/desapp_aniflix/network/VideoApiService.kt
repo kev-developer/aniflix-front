@@ -1,44 +1,32 @@
 package com.desApp.desapp_aniflix.network
 
 import com.desApp.desapp_aniflix.auth.TokenManager
-import com.desApp.desapp_aniflix.model.UserProfile
 import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-import retrofit2.http.Body
 import retrofit2.http.GET
-import retrofit2.http.POST
+import retrofit2.http.Query
 
 // ─── Response wrappers ─────────────────────────────────────────────────────────
 
-data class ProfilesResponse(
+data class SignedUrlResponse(
     val success: Boolean,
-    val data: List<UserProfile>,
-    val count: Int
+    val data: SignedUrlData
 )
 
-data class CreateProfileRequest(
-    val name: String,
-    val avatar: String = ""
-)
-
-data class CreateProfileResponse(
-    val success: Boolean,
-    val data: UserProfile,
-    val message: String
+data class SignedUrlData(
+    val signedUrl: String,
+    val videoPath: String
 )
 
 // ─── API Interface ─────────────────────────────────────────────────────────────
 
-interface ProfileApiService {
+interface VideoApiService {
 
-    @GET("api/profiles")
-    suspend fun getProfiles(): ProfilesResponse
-
-    @POST("api/profiles")
-    suspend fun createProfile(@Body request: CreateProfileRequest): CreateProfileResponse
+    @GET("api/video/signed-url")
+    suspend fun getSignedUrl(@Query("videoPath") videoPath: String): SignedUrlResponse
 }
 
 // ─── Shared CloudFront Header Interceptor ─────────────────────────────────────
@@ -58,7 +46,7 @@ private val cloudFrontInterceptor = Interceptor { chain ->
 
 // ─── Retrofit Client with Auth Interceptor ────────────────────────────────────
 
-object ProfileRetrofitClient {
+object VideoRetrofitClient {
 
     private const val BASE_URL = "https://aniflix-backend-xd7c.onrender.com/"
 
@@ -66,8 +54,7 @@ object ProfileRetrofitClient {
 
     /**
      * Interceptor que añade el Firebase ID Token en el header Authorization.
-     * OkHttp ejecuta interceptores en su propio pool de hilos (no en main thread),
-     * por lo que runBlocking es seguro aquí.
+     * El endpoint /api/video/signed-url requiere verifyToken middleware.
      */
     private val authInterceptor = Interceptor { chain ->
         val token = runBlocking { tokenManager.getValidToken() }
@@ -86,12 +73,12 @@ object ProfileRetrofitClient {
         .addInterceptor(cloudFrontInterceptor)
         .build()
 
-    val profileApiService: ProfileApiService by lazy {
+    val videoApiService: VideoApiService by lazy {
         Retrofit.Builder()
             .baseUrl(BASE_URL)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
-            .create(ProfileApiService::class.java)
+            .create(VideoApiService::class.java)
     }
 }

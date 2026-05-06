@@ -1,5 +1,6 @@
 package com.desApp.desapp_aniflix.ui.screens
 
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -9,6 +10,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -136,7 +138,11 @@ fun DetailScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Button(
-                        onClick = { /* TODO: reproducir */ },
+                        onClick = {
+                            val videoPath = item.videoUrl ?: ""
+                            val encodedTitle = Uri.encode(item.title)
+                            navController.navigate("player/${contentType}/${contentId}?videoPath=${videoPath}&title=${encodedTitle}")
+                        },
                         modifier = Modifier.fillMaxWidth().height(45.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color.White,

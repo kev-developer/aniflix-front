@@ -11,9 +11,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.desApp.desapp_aniflix.auth.AuthRepository
 import com.desApp.desapp_aniflix.auth.ProfileManager
 import com.desApp.desapp_aniflix.ui.CatalogViewModel
@@ -90,6 +92,19 @@ class MainActivity : ComponentActivity() {
                             val contentType = backStackEntry.arguments?.getString("contentType")
                             val contentId = backStackEntry.arguments?.getString("contentId")
                             DetailScreen(contentType, contentId, catalogViewModel, navController)
+                        }
+                        composable(
+                            "player/{contentType}/{contentId}?videoPath={videoPath}&title={title}",
+                            arguments = listOf(
+                                navArgument("videoPath") { type = NavType.StringType; defaultValue = "" },
+                                navArgument("title") { type = NavType.StringType; defaultValue = "" }
+                            )
+                        ) { backStackEntry ->
+                            val contentType = backStackEntry.arguments?.getString("contentType")
+                            val contentId = backStackEntry.arguments?.getString("contentId")
+                            val videoPath = backStackEntry.arguments?.getString("videoPath")
+                            val title = backStackEntry.arguments?.getString("title")
+                            VideoPlayerScreen(contentType, contentId, videoPath, title, navController)
                         }
                     }
                 }

@@ -62,6 +62,11 @@ dependencies {
     implementation(libs.converter.gson)
     implementation(libs.coil.compose)
 
+    // Media3 (ExoPlayer)
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.ui)
+    implementation(libs.media3.session)
+
     // Firebase
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth.ktx)
