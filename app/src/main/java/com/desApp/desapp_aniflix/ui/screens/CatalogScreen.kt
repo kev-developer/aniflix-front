@@ -25,18 +25,26 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.desApp.desapp_aniflix.auth.AuthRepository
 import com.desApp.desapp_aniflix.auth.ProfileManager
-import com.desApp.desapp_aniflix.model.Anime
+import com.desApp.desapp_aniflix.model.ContentItem
 import com.desApp.desapp_aniflix.ui.CatalogViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CatalogScreen(navController: NavController, viewModel: CatalogViewModel) {
-    val animes by viewModel.animes.collectAsState()
+    val contentItems by viewModel.contentItems.collectAsState()
+    val genres by viewModel.genres.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val watchLater = viewModel.watchLater
     val authRepository = remember { AuthRepository() }
     val scope = rememberCoroutineScope()
+
+    // Filtrar solo los géneros que tienen contenido asociado
+    val activeGenres = remember(contentItems, genres) {
+        genres.filter { genre ->
+            contentItems.any { item -> item.genres?.contains(genre.id) == true }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -86,24 +94,21 @@ fun CatalogScreen(navController: NavController, viewModel: CatalogViewModel) {
                 if (watchLater.isNotEmpty()) {
                     item {
                         SectionHeader("Mi lista")
-                        AnimeRow(animes = watchLater, navController = navController)
+                        ContentRow(items = watchLater, navController = navController)
                     }
                 }
 
                 item {
                     SectionHeader("Populares en Aniflix")
-                    AnimeRow(animes = animes.sortedByDescending { it.views.toIntOrNull() ?: 0 }, navController = navController)
+                    ContentRow(items = contentItems, navController = navController)
                 }
 
-                item {
-                    SectionHeader("Novedades")
-                    AnimeRow(animes = animes.sortedByDescending { it.createdAt }, navController = navController)
-                }
-
-                val genres = animes.map { it.genre }.distinct()
-                items(genres) { genre ->
-                    SectionHeader(genre)
-                    AnimeRow(animes = animes.filter { it.genre == genre }, navController = navController)
+                items(activeGenres) { genre ->
+                    SectionHeader(genre.name)
+                    val genreItems = contentItems.filter { item ->
+                        item.genres?.contains(genre.id) == true
+                    }
+                    ContentRow(items = genreItems, navController = navController)
                 }
             }
         }
@@ -122,29 +127,29 @@ fun SectionHeader(title: String) {
 }
 
 @Composable
-fun AnimeRow(animes: List<Anime>, navController: NavController) {
+fun ContentRow(items: List<ContentItem>, navController: NavController) {
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         contentPadding = PaddingValues(horizontal = 16.dp)
     ) {
-        items(animes) { anime ->
-            AnimePoster(anime = anime) {
-                navController.navigate("detail/${anime.id}")
+        items(items) { item ->
+            ContentPoster(item = item) {
+                navController.navigate("detail/${item.contentType}/${item.id}")
             }
         }
     }
 }
 
 @Composable
-fun AnimePoster(anime: Anime, onClick: () -> Unit) {
+fun ContentPoster(item: ContentItem, onClick: () -> Unit) {
     Column(
         modifier = Modifier
             .width(110.dp)
             .clickable { onClick() }
     ) {
         AsyncImage(
-            model = anime.img,
-            contentDescription = anime.name,
+            model = item.thumbnail ?: item.coverImage,
+            contentDescription = item.title,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(160.dp)

@@ -3,21 +3,25 @@ package com.desApp.desapp_aniflix.ui
 import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.desApp.desapp_aniflix.model.Anime
-import com.desApp.desapp_aniflix.network.RetrofitClient
+import com.desApp.desapp_aniflix.model.ContentItem
+import com.desApp.desapp_aniflix.model.GenreItem
+import com.desApp.desapp_aniflix.network.ContentRetrofitClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 class CatalogViewModel : ViewModel() {
-    private val _animes = MutableStateFlow<List<Anime>>(emptyList())
-    val animes: StateFlow<List<Anime>> = _animes
+    private val _contentItems = MutableStateFlow<List<ContentItem>>(emptyList())
+    val contentItems: StateFlow<List<ContentItem>> = _contentItems
+
+    private val _genres = MutableStateFlow<List<GenreItem>>(emptyList())
+    val genres: StateFlow<List<GenreItem>> = _genres
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing
 
-    private val _watchLater = mutableStateListOf<Anime>()
-    val watchLater: List<Anime> = _watchLater
+    private val _watchLater = mutableStateListOf<ContentItem>()
+    val watchLater: List<ContentItem> = _watchLater
 
     init {
         refresh()
@@ -27,8 +31,11 @@ class CatalogViewModel : ViewModel() {
         viewModelScope.launch {
             _isRefreshing.value = true
             try {
-                val response = RetrofitClient.animeApiService.getAnimes()
-                _animes.value = response
+                val recentResponse = ContentRetrofitClient.contentApiService.getRecent(50)
+                _contentItems.value = recentResponse.data
+
+                val genresResponse = ContentRetrofitClient.contentApiService.getGenres()
+                _genres.value = genresResponse.data
             } catch (e: Exception) {
                 // Handle error
             } finally {
@@ -37,9 +44,9 @@ class CatalogViewModel : ViewModel() {
         }
     }
 
-    fun addToWatchLater(anime: Anime) {
-        if (!_watchLater.contains(anime)) {
-            _watchLater.add(anime)
+    fun addToWatchLater(item: ContentItem) {
+        if (!_watchLater.contains(item)) {
+            _watchLater.add(item)
         }
     }
 }

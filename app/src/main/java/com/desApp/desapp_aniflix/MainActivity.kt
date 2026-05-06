@@ -86,9 +86,10 @@ class MainActivity : ComponentActivity() {
                         composable("catalog") {
                             CatalogScreen(navController, catalogViewModel)
                         }
-                        composable("detail/{animeId}") { backStackEntry ->
-                            val animeId = backStackEntry.arguments?.getString("animeId")
-                            DetailScreen(animeId, catalogViewModel, navController)
+                        composable("detail/{contentType}/{contentId}") { backStackEntry ->
+                            val contentType = backStackEntry.arguments?.getString("contentType")
+                            val contentId = backStackEntry.arguments?.getString("contentId")
+                            DetailScreen(contentType, contentId, catalogViewModel, navController)
                         }
                     }
                 }
