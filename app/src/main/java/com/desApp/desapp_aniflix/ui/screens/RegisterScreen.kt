@@ -15,6 +15,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.desApp.desapp_aniflix.auth.AuthRepository
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -22,6 +24,11 @@ fun RegisterScreen(navController: NavController) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+
+    val authRepository = remember { AuthRepository() }
+    val scope = rememberCoroutineScope()
 
     Box(
         modifier = Modifier
@@ -57,9 +64,9 @@ fun RegisterScreen(navController: NavController) {
                     letterSpacing = 4.sp
                 )
             )
-            
+
             Spacer(modifier = Modifier.height(32.dp))
-            
+
             Text(
                 text = "Regístrate",
                 color = Color.White,
@@ -67,13 +74,16 @@ fun RegisterScreen(navController: NavController) {
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.align(Alignment.Start)
             )
-            
+
             Spacer(modifier = Modifier.height(24.dp))
 
             TextField(
                 value = email,
-                onValueChange = { email = it },
-                label = { Text("Correo", color = Color.Gray) },
+                onValueChange = {
+                    email = it
+                    error = ""
+                },
+                label = { Text("Correo electrónico", color = Color.Gray) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Color(0xFF333333), RoundedCornerShape(4.dp)),
@@ -86,13 +96,17 @@ fun RegisterScreen(navController: NavController) {
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White
                 ),
-                shape = RoundedCornerShape(4.dp)
+                shape = RoundedCornerShape(4.dp),
+                enabled = !isLoading
             )
             Spacer(modifier = Modifier.height(16.dp))
 
             TextField(
                 value = password,
-                onValueChange = { password = it },
+                onValueChange = {
+                    password = it
+                    error = ""
+                },
                 label = { Text("Contraseña", color = Color.Gray) },
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier
@@ -107,13 +121,17 @@ fun RegisterScreen(navController: NavController) {
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White
                 ),
-                shape = RoundedCornerShape(4.dp)
+                shape = RoundedCornerShape(4.dp),
+                enabled = !isLoading
             )
             Spacer(modifier = Modifier.height(16.dp))
 
             TextField(
                 value = confirmPassword,
-                onValueChange = { confirmPassword = it },
+                onValueChange = {
+                    confirmPassword = it
+                    error = ""
+                },
                 label = { Text("Confirmar contraseña", color = Color.Gray) },
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier
@@ -128,12 +146,55 @@ fun RegisterScreen(navController: NavController) {
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White
                 ),
-                shape = RoundedCornerShape(4.dp)
+                shape = RoundedCornerShape(4.dp),
+                enabled = !isLoading
             )
             Spacer(modifier = Modifier.height(24.dp))
 
+            if (error.isNotEmpty()) {
+                Text(
+                    text = error,
+                    color = Color(0xFFE87C03),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.align(Alignment.Start)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
             Button(
-                onClick = { /* Implement register logic if needed */ },
+                onClick = {
+                    // Validaciones
+                    if (email.isBlank() || password.isBlank() || confirmPassword.isBlank()) {
+                        error = "Todos los campos son requeridos."
+                        return@Button
+                    }
+                    if (password != confirmPassword) {
+                        error = "Las contraseñas no coinciden."
+                        return@Button
+                    }
+                    if (password.length < 6) {
+                        error = "La contraseña debe tener al menos 6 caracteres."
+                        return@Button
+                    }
+
+                    isLoading = true
+                    error = ""
+                    scope.launch {
+                        val result = authRepository.registerWithEmail(email.trim(), password)
+                        isLoading = false
+                        result.fold(
+                            onSuccess = {
+                                // Registro exitoso, navegar al catálogo
+                                navController.navigate("catalog") {
+                                    popUpTo("login") { inclusive = true }
+                                }
+                            },
+                            onFailure = { exception ->
+                                error = exception.message ?: "Error al registrarse."
+                            }
+                        )
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
@@ -141,19 +202,30 @@ fun RegisterScreen(navController: NavController) {
                     containerColor = Color(0xFFE50914),
                     contentColor = Color.White
                 ),
-                shape = RoundedCornerShape(4.dp)
+                shape = RoundedCornerShape(4.dp),
+                enabled = !isLoading
             ) {
-                Text("Regístrate", fontWeight = FontWeight.Bold)
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("Regístrate", fontWeight = FontWeight.Bold)
+                }
             }
+
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
                 text = "¿Ya tienes una cuenta? Inicia sesión.",
                 color = Color.White,
                 fontWeight = FontWeight.Medium,
-                modifier = Modifier.clickable {
-                    navController.navigate("login")
-                }
+                modifier = Modifier
+                    .clickable(enabled = !isLoading) {
+                        navController.navigate("login")
+                    }
             )
         }
     }

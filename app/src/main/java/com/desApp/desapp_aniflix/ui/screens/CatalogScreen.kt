@@ -12,6 +12,8 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -21,8 +23,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import com.desApp.desapp_aniflix.auth.AuthRepository
+import com.desApp.desapp_aniflix.auth.ProfileManager
 import com.desApp.desapp_aniflix.model.Anime
 import com.desApp.desapp_aniflix.ui.CatalogViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,6 +35,8 @@ fun CatalogScreen(navController: NavController, viewModel: CatalogViewModel) {
     val animes by viewModel.animes.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val watchLater = viewModel.watchLater
+    val authRepository = remember { AuthRepository() }
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
@@ -45,8 +52,12 @@ fun CatalogScreen(navController: NavController, viewModel: CatalogViewModel) {
                 actions = {
                     TextButton(
                         onClick = {
-                            navController.navigate("login") {
-                                popUpTo("catalog") { inclusive = true }
+                            scope.launch {
+                                ProfileManager.clear()
+                                authRepository.logout()
+                                navController.navigate("login") {
+                                    popUpTo("catalog") { inclusive = true }
+                                }
                             }
                         }
                     ) {

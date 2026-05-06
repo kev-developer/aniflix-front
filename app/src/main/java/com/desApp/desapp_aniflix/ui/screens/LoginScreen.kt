@@ -1,6 +1,5 @@
 package com.desApp.desapp_aniflix.ui.screens
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -11,13 +10,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.desApp.desapp_aniflix.auth.AuthRepository
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,13 +24,17 @@ fun LoginScreen(navController: NavController) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+
+    val authRepository = remember { AuthRepository() }
+    val scope = rememberCoroutineScope()
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        // Gradient background to give it a modern look
+        // Gradient background
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -60,12 +63,15 @@ fun LoginScreen(navController: NavController) {
                     letterSpacing = 4.sp
                 )
             )
-            
+
             Spacer(modifier = Modifier.height(48.dp))
 
             TextField(
                 value = email,
-                onValueChange = { email = it },
+                onValueChange = {
+                    email = it
+                    error = ""
+                },
                 label = { Text("Email o número de teléfono", color = Color.Gray) },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -79,14 +85,18 @@ fun LoginScreen(navController: NavController) {
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White
                 ),
-                shape = RoundedCornerShape(4.dp)
+                shape = RoundedCornerShape(4.dp),
+                enabled = !isLoading
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
 
             TextField(
                 value = password,
-                onValueChange = { password = it },
+                onValueChange = {
+                    password = it
+                    error = ""
+                },
                 label = { Text("Contraseña", color = Color.Gray) },
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier
@@ -101,9 +111,10 @@ fun LoginScreen(navController: NavController) {
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White
                 ),
-                shape = RoundedCornerShape(4.dp)
+                shape = RoundedCornerShape(4.dp),
+                enabled = !isLoading
             )
-            
+
             Spacer(modifier = Modifier.height(24.dp))
 
             if (error.isNotEmpty()) {
@@ -118,12 +129,25 @@ fun LoginScreen(navController: NavController) {
 
             Button(
                 onClick = {
-                    if (email == "admin@gmail.com" && password == "123") {
-                        navController.navigate("catalog") {
-                            popUpTo("login") { inclusive = true }
-                        }
-                    } else {
-                        error = "Lo sentimos, no hemos podido encontrar una cuenta con esta dirección de correo electrónico."
+                    if (email.isBlank() || password.isBlank()) {
+                        error = "Por favor ingresa tu email y contraseña."
+                        return@Button
+                    }
+                    isLoading = true
+                    error = ""
+                    scope.launch {
+                        val result = authRepository.loginWithEmail(email.trim(), password)
+                        isLoading = false
+                        result.fold(
+                            onSuccess = {
+                                navController.navigate("profile_selection") {
+                                    popUpTo("login") { inclusive = true }
+                                }
+                            },
+                            onFailure = { exception ->
+                                error = exception.message ?: "Error al iniciar sesión."
+                            }
+                        )
                     }
                 },
                 modifier = Modifier
@@ -133,24 +157,34 @@ fun LoginScreen(navController: NavController) {
                     containerColor = Color(0xFFE50914),
                     contentColor = Color.White
                 ),
-                shape = RoundedCornerShape(4.dp)
+                shape = RoundedCornerShape(4.dp),
+                enabled = !isLoading
             ) {
-                Text("Iniciar sesión", fontWeight = FontWeight.Bold)
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("Iniciar sesión", fontWeight = FontWeight.Bold)
+                }
             }
-            
+
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
                 text = "¿Primera vez en Aniflix? Suscríbete ya.",
                 color = Color.White,
                 fontWeight = FontWeight.Medium,
-                modifier = Modifier.clickable {
-                    navController.navigate("register")
-                }
+                modifier = Modifier
+                    .clickable(enabled = !isLoading) {
+                        navController.navigate("register")
+                    }
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             Text(
                 text = "Esta página está protegida por Google reCAPTCHA para asegurar que no eres un robot.",
                 color = Color.Gray,
