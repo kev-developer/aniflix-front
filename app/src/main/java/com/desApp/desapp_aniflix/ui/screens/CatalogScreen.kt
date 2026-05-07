@@ -33,6 +33,7 @@ import com.desApp.desapp_aniflix.auth.AuthRepository
 import com.desApp.desapp_aniflix.auth.ProfileManager
 import com.desApp.desapp_aniflix.model.ContentItem
 import com.desApp.desapp_aniflix.model.ContinueWatchingItem
+import com.desApp.desapp_aniflix.ui.ProfileViewModel
 import com.desApp.desapp_aniflix.model.GenreItem
 import com.desApp.desapp_aniflix.ui.CatalogViewModel
 import kotlinx.coroutines.launch
@@ -40,7 +41,7 @@ import kotlin.random.Random
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CatalogScreen(navController: NavController, viewModel: CatalogViewModel) {
+fun CatalogScreen(navController: NavController, viewModel: CatalogViewModel, profileViewModel: ProfileViewModel) {
     val contentItems by viewModel.contentItems.collectAsState()
     val genres by viewModel.genres.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
@@ -92,6 +93,7 @@ fun CatalogScreen(navController: NavController, viewModel: CatalogViewModel) {
                     TextButton(
                         onClick = {
                             scope.launch {
+                                profileViewModel.clearProfiles()
                                 ProfileManager.clear()
                                 authRepository.logout()
                                 navController.navigate("login") {

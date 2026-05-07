@@ -67,4 +67,15 @@ class ProfileViewModel : ViewModel() {
             }
         }
     }
+
+    /**
+     * Limpia el estado de perfiles al cerrar sesión.
+     * Evita que al iniciar sesión con otra cuenta se vean brevemente
+     * los perfiles de la cuenta anterior (caché del ViewModel a nivel Activity).
+     */
+    fun clearProfiles() {
+        _profiles.value = emptyList()
+        _error.value = null
+        _isLoading.value = false
+    }
 }

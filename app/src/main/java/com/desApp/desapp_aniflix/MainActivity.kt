@@ -95,7 +95,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         composable("catalog") {
-                            CatalogScreen(navController, catalogViewModel)
+                            CatalogScreen(navController, catalogViewModel, profileViewModel)
                         }
                         composable("detail/{contentType}/{contentId}") { backStackEntry ->
                             val contentType = backStackEntry.arguments?.getString("contentType")
