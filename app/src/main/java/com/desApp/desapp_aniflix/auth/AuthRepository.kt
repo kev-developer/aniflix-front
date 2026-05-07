@@ -62,6 +62,35 @@ class AuthRepository {
     }
 
     /**
+     * Envía un correo de verificación al usuario actual.
+     */
+    suspend fun sendEmailVerification(): Result<Unit> {
+        return try {
+            val user = auth.currentUser ?: return Result.failure(Exception("No hay usuario autenticado"))
+            user.sendEmailVerification().await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(Exception("Error al enviar correo de verificación: ${e.localizedMessage}"))
+        }
+    }
+
+    /**
+     * Recarga los datos del usuario actual (para refrescar isEmailVerified).
+     */
+    suspend fun reloadUser() {
+        auth.currentUser?.reload()?.await()
+    }
+
+    /**
+     * Verifica si el email del usuario actual está verificado.
+     * Recarga el usuario primero para obtener el estado más reciente.
+     */
+    suspend fun isEmailVerified(): Boolean {
+        reloadUser()
+        return auth.currentUser?.isEmailVerified == true
+    }
+
+    /**
      * Cierra la sesión del usuario actual.
      */
     fun logout() {

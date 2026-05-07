@@ -62,11 +62,17 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    // Determinar la pantalla inicial según estado de auth y perfil
-                    val startDestination = when {
-                        !isLoggedIn -> "login"
-                        ProfileManager.hasProfile() -> "catalog"
-                        else -> "profile_selection"
+                    // Determinar la pantalla inicial según estado de auth, verificación email y perfil
+                    // Usamos remember para que calcule UNA SOLA VEZ al iniciar
+                    // y no reinicie el NavHost cuando cambie el estado de autenticación
+                    val currentUser = FirebaseAuth.getInstance().currentUser
+                    val startDestination = remember {
+                        when {
+                            currentUser == null -> "login"
+                            !currentUser.isEmailVerified -> "verify_email"
+                            ProfileManager.hasProfile() -> "catalog"
+                            else -> "profile_selection"
+                        }
                     }
 
                     NavHost(
@@ -78,6 +84,9 @@ class MainActivity : ComponentActivity() {
                         }
                         composable("register") {
                             RegisterScreen(navController)
+                        }
+                        composable("verify_email") {
+                            VerifyEmailScreen(navController)
                         }
                         composable("profile_selection") {
                             ProfileSelectionScreen(

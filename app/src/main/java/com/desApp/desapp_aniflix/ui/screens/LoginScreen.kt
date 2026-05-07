@@ -8,7 +8,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -34,24 +33,10 @@ fun LoginScreen(navController: NavController) {
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        // Gradient background
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = 0.8f),
-                            Color.Black
-                        )
-                    )
-                )
-        )
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
+                .padding(horizontal = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -72,7 +57,7 @@ fun LoginScreen(navController: NavController) {
                     email = it
                     error = ""
                 },
-                label = { Text("Email o número de teléfono", color = Color.Gray) },
+                label = { Text("Email", color = Color.Gray) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Color(0xFF333333), RoundedCornerShape(4.dp)),
@@ -124,6 +109,7 @@ fun LoginScreen(navController: NavController) {
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.align(Alignment.Start)
                 )
+
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
@@ -140,8 +126,16 @@ fun LoginScreen(navController: NavController) {
                         isLoading = false
                         result.fold(
                             onSuccess = {
-                                navController.navigate("profile_selection") {
-                                    popUpTo("login") { inclusive = true }
+                                // Verificar si el email está verificado
+                                if (!authRepository.isEmailVerified()) {
+                                    // NO cerramos sesión para que sendEmailVerification() funcione
+                                    navController.navigate("verify_email") {
+                                        popUpTo("login") { inclusive = true }
+                                    }
+                                } else {
+                                    navController.navigate("profile_selection") {
+                                        popUpTo("login") { inclusive = true }
+                                    }
                                 }
                             },
                             onFailure = { exception ->
@@ -192,5 +186,5 @@ fun LoginScreen(navController: NavController) {
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
         }
-    }
+}
 }

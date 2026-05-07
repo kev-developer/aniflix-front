@@ -181,15 +181,20 @@ fun RegisterScreen(navController: NavController) {
                     error = ""
                     scope.launch {
                         val result = authRepository.registerWithEmail(email.trim(), password)
-                        isLoading = false
                         result.fold(
                             onSuccess = {
-                                // Registro exitoso, navegar al catálogo
-                                navController.navigate("catalog") {
-                                    popUpTo("login") { inclusive = true }
+                                // Enviar correo de verificación
+                                authRepository.sendEmailVerification()
+                                // Cerrar sesión para que no pueda acceder sin verificar
+                                authRepository.logout()
+                                isLoading = false
+                                // Navegar a pantalla de verificación
+                                navController.navigate("verify_email") {
+                                    popUpTo("register") { inclusive = true }
                                 }
                             },
                             onFailure = { exception ->
+                                isLoading = false
                                 error = exception.message ?: "Error al registrarse."
                             }
                         )
