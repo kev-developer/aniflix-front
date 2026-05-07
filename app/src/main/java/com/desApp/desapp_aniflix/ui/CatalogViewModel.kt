@@ -23,6 +23,9 @@ class CatalogViewModel : ViewModel() {
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing
 
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading: StateFlow<Boolean> = _isLoading
+
     private val _watchLater = mutableStateListOf<ContentItem>()
     val watchLater: List<ContentItem> = _watchLater
 
@@ -35,6 +38,7 @@ class CatalogViewModel : ViewModel() {
 
     fun refresh() {
         viewModelScope.launch {
+            _isLoading.value = true
             _isRefreshing.value = true
             try {
                 val recentResponse = ContentRetrofitClient.contentApiService.getRecent(50)
@@ -48,6 +52,7 @@ class CatalogViewModel : ViewModel() {
             } catch (e: Exception) {
                 // Handle error
             } finally {
+                _isLoading.value = false
                 _isRefreshing.value = false
             }
         }

@@ -12,12 +12,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -31,8 +33,10 @@ import com.desApp.desapp_aniflix.auth.AuthRepository
 import com.desApp.desapp_aniflix.auth.ProfileManager
 import com.desApp.desapp_aniflix.model.ContentItem
 import com.desApp.desapp_aniflix.model.ContinueWatchingItem
+import com.desApp.desapp_aniflix.model.GenreItem
 import com.desApp.desapp_aniflix.ui.CatalogViewModel
 import kotlinx.coroutines.launch
+import kotlin.random.Random
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,6 +44,7 @@ fun CatalogScreen(navController: NavController, viewModel: CatalogViewModel) {
     val contentItems by viewModel.contentItems.collectAsState()
     val genres by viewModel.genres.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
     val continueWatching by viewModel.continueWatching.collectAsState()
     val watchLater = viewModel.watchLater
     val authRepository = remember { AuthRepository() }
@@ -49,6 +54,20 @@ fun CatalogScreen(navController: NavController, viewModel: CatalogViewModel) {
     // (útil si el ViewModel se creó antes de que el perfil estuviera seleccionado)
     LaunchedEffect(Unit) {
         viewModel.loadContinueWatchingData()
+    }
+
+    // Seleccionar un item aleatorio para el Hero Banner
+    val heroItem = remember(contentItems) {
+        if (contentItems.isNotEmpty()) {
+            contentItems[Random.nextInt(contentItems.size)]
+        } else null
+    }
+
+    // Obtener hasta 3 nombres de género para el Hero
+    val heroGenreNames = remember(heroItem, genres) {
+        heroItem?.genres?.mapNotNull { genreId ->
+            genres.find { it.id == genreId }?.name
+        }?.take(3) ?: emptyList()
     }
 
     // Filtrar solo los géneros que tienen contenido asociado
@@ -91,44 +110,216 @@ fun CatalogScreen(navController: NavController, viewModel: CatalogViewModel) {
         },
         containerColor = Color.Black
     ) { paddingValues ->
-        PullToRefreshBox(
-            isRefreshing = isRefreshing,
-            onRefresh = { viewModel.refresh() },
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .background(Color.Black)
-        ) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 16.dp)
+        Box(modifier = Modifier.fillMaxSize()) {
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = { viewModel.refresh() },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .background(Color.Black)
             ) {
-                // ── Continue Watching ────────────────────────────────────────
-                if (continueWatching.isNotEmpty()) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 16.dp)
+                ) {
+                    // ── Hero Banner ──────────────────────────────────────────────
+                    if (heroItem != null) {
+                        item {
+                            HeroSection(
+                                item = heroItem,
+                                genreNames = heroGenreNames,
+                                navController = navController
+                            )
+                        }
+                    }
+
+                    // ── Continue Watching ────────────────────────────────────────
+                    if (continueWatching.isNotEmpty()) {
+                        item {
+                            SectionHeader("Continuar Viendo")
+                            ContinueWatchingRow(items = continueWatching, navController = navController)
+                        }
+                    }
+
+                    if (watchLater.isNotEmpty()) {
+                        item {
+                            SectionHeader("Mi lista")
+                            ContentRow(items = watchLater, navController = navController)
+                        }
+                    }
+
                     item {
-                        SectionHeader("Continuar Viendo")
-                        ContinueWatchingRow(items = continueWatching, navController = navController)
+                        SectionHeader("Recientemente Agregados")
+                        ContentRow(items = contentItems, navController = navController)
+                    }
+
+                    items(activeGenres) { genre ->
+                        SectionHeader(genre.name)
+                        val genreItems = contentItems.filter { item ->
+                            item.genres?.contains(genre.id) == true
+                        }
+                        ContentRow(items = genreItems, navController = navController)
                     }
                 }
+            }
 
-                if (watchLater.isNotEmpty()) {
-                    item {
-                        SectionHeader("Mi lista")
-                        ContentRow(items = watchLater, navController = navController)
+            // ── Loading Overlay (full-screen spinner while data loads) ─────
+            if (isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(
+                            color = Color(0xFFE50914),
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Cargando...",
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 14.sp
+                        )
                     }
                 }
+            }
+        }
+    }
+}
 
-                item {
-                    SectionHeader("Recientemente Agregados")
-                    ContentRow(items = contentItems, navController = navController)
+// ─── Hero Card (Netflix-style card/poster) ─────────────────────────────────────
+
+@Composable
+fun HeroSection(
+    item: ContentItem,
+    genreNames: List<String>,
+    navController: NavController
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp)
+            .padding(top = 8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(0.7f)
+                .clip(RoundedCornerShape(12.dp))
+                .clickable {
+                    navController.navigate("detail/${item.contentType}/${item.id}")
+                }
+        ) {
+            // ── Card image (poster thumbnail) ──
+            AsyncImage(
+                model = item.thumbnail,
+                contentDescription = item.title,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+
+            // ── Gradient overlay (transparent → black at bottom) ──
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.85f)
+                            ),
+                            startY = 0f,
+                            endY = Float.POSITIVE_INFINITY
+                        )
+                    )
+            )
+
+            // ── Content at bottom ──
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 16.dp, end = 16.dp, bottom = 20.dp)
+            ) {
+                // Genre tags separated by " • "
+                if (genreNames.isNotEmpty()) {
+                    Text(
+                        text = genreNames.joinToString(" • "),
+                        color = Color.White.copy(alpha = 0.85f),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
                 }
 
-                items(activeGenres) { genre ->
-                    SectionHeader(genre.name)
-                    val genreItems = contentItems.filter { item ->
-                        item.genres?.contains(genre.id) == true
+                // Action buttons row
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // ── Reproducir button ──
+                    Button(
+                        onClick = {
+                            // Series → T1 E1; Movies → direct playback
+                            val firstEpisode = item.seasons?.firstOrNull()?.episodes?.firstOrNull()
+                            val vPath = if (item.contentType == "serie" && firstEpisode != null) {
+                                firstEpisode.videoUrl ?: ""
+                            } else {
+                                item.videoUrl ?: ""
+                            }
+                            val epTitle = if (item.contentType == "serie" && firstEpisode != null) {
+                                firstEpisode.title ?: item.title
+                            } else {
+                                item.title
+                            }
+                            navController.navigate(
+                                "player/${item.contentType}/${item.id}" +
+                                "?videoPath=${Uri.encode(vPath)}" +
+                                "&title=${Uri.encode(item.title)}" +
+                                "&initialProgress=0" +
+                                "&seasonNumber=${firstEpisode?.seasonNumber ?: 1}" +
+                                "&episodeNumber=${firstEpisode?.episodeNumber ?: 1}" +
+                                "&episodeTitle=${Uri.encode(epTitle)}"
+                            )
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White,
+                            contentColor = Color.Black
+                        ),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Reproducir",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
                     }
-                    ContentRow(items = genreItems, navController = navController)
+
+                    // ── + Mi lista button (placeholder) ──
+                    OutlinedButton(
+                        onClick = { /* placeholder - sin funcionalidad aún */ },
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color.White
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.7f)),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            text = "+ Mi lista",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                    }
                 }
             }
         }
