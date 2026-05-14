@@ -9,7 +9,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -24,7 +23,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VerifyEmailScreen(navController: NavController) {
-    var viewMode by remember { mutableStateOf("verify") } // "verify" o "support"
+    var viewMode by remember { mutableStateOf("verify") }
     var isLoading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
     var emailResent by remember { mutableStateOf(false) }
@@ -35,7 +34,11 @@ fun VerifyEmailScreen(navController: NavController) {
     val authRepository = remember { AuthRepository() }
     val scope = rememberCoroutineScope()
 
-    // Al entrar a la pantalla, obtener el estado del cooldown desde el backend
+    val primaryColor = Color(0xFF7C4DFF)
+    val backgroundColor = Color(0xFF0F111A)
+    val surfaceColor = Color(0xFF1A1D29)
+    val accentColor = Color(0xFF03DAC5)
+
     LaunchedEffect(Unit) {
         isInitialLoading = true
         ResendCooldownManager.fetchCooldownStatus()
@@ -46,7 +49,6 @@ fun VerifyEmailScreen(navController: NavController) {
         isInitialLoading = false
     }
 
-    // Timer de cooldown
     LaunchedEffect(cooldownRemaining) {
         if (cooldownRemaining > 0) {
             delay(1000L)
@@ -57,26 +59,12 @@ fun VerifyEmailScreen(navController: NavController) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(backgroundColor)
     ) {
-        // Gradient overlay
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = 0.8f),
-                            Color.Black
-                        )
-                    )
-                )
-        )
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
+                .padding(horizontal = 40.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -85,18 +73,17 @@ fun VerifyEmailScreen(navController: NavController) {
                     Text(
                         text = "ANIFLIX",
                         style = MaterialTheme.typography.displayMedium.copy(
-                            color = Color(0xFFE50914),
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 4.sp
+                            color = primaryColor,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 6.sp
                         )
                     )
 
                     Spacer(modifier = Modifier.height(48.dp))
 
-                    // Mail icon using text
                     Text(
                         text = "✉️",
-                        fontSize = 64.sp
+                        fontSize = 80.sp
                     )
 
                     Spacer(modifier = Modifier.height(24.dp))
@@ -112,46 +99,26 @@ fun VerifyEmailScreen(navController: NavController) {
 
                     Text(
                         text = "Te hemos enviado un enlace de verificación a tu correo electrónico.",
-                        color = Color.White.copy(alpha = 0.8f),
+                        color = Color.White.copy(alpha = 0.7f),
                         style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = "Revisa tu bandeja de entrada o spam para verificarlo.",
-                        color = Color.Gray,
-                        style = MaterialTheme.typography.bodySmall,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 16.dp)
+                        textAlign = TextAlign.Center
                     )
 
                     Spacer(modifier = Modifier.height(32.dp))
 
                     if (isInitialLoading) {
                         CircularProgressIndicator(
-                            color = Color(0xFFE50914),
+                            color = primaryColor,
                             modifier = Modifier.size(40.dp),
                             strokeWidth = 3.dp
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Consultando estado...",
-                            color = Color.Gray,
-                            style = MaterialTheme.typography.bodySmall
                         )
                     } else {
                         if (error.isNotEmpty()) {
                             Text(
                                 text = error,
-                                color = Color(0xFFE87C03),
+                                color = Color(0xFFFF4081),
                                 style = MaterialTheme.typography.bodySmall,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp)
+                                textAlign = TextAlign.Center
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                         }
@@ -159,26 +126,21 @@ fun VerifyEmailScreen(navController: NavController) {
                         if (emailResent) {
                             Text(
                                 text = "Correo reenviado correctamente",
-                                color = Color(0xFF4CAF50),
+                                color = accentColor,
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.Medium
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                         }
 
-                        // Botón reenviar correo (con cooldown server-side)
                         OutlinedButton(
                             onClick = {
                                 scope.launch {
                                     isLoading = true
                                     error = ""
                                     emailResent = false
-
-                                    // 1. Verificar cooldown en el backend (Firestore)
                                     val cooldownResult = ResendCooldownManager.requestResend()
-
                                     if (cooldownResult.isSuccess) {
-                                        // 2. Cooldown OK: enviar el email desde Firebase Auth
                                         authRepository.sendEmailVerification()
                                             .fold(
                                                 onSuccess = {
@@ -191,7 +153,6 @@ fun VerifyEmailScreen(navController: NavController) {
                                                 }
                                             )
                                     } else {
-                                        // El backend rechazó (cooldown activo)
                                         error = ResendCooldownManager.lastError
                                         showCooldown = true
                                         cooldownRemaining = ResendCooldownManager.remainingCooldownSeconds
@@ -201,12 +162,12 @@ fun VerifyEmailScreen(navController: NavController) {
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(50.dp),
+                                .height(56.dp),
                             colors = ButtonDefaults.outlinedButtonColors(
                                 contentColor = Color.White
                             ),
-                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.5f)),
-                            shape = RoundedCornerShape(4.dp),
+                            border = BorderStroke(2.dp, primaryColor.copy(alpha = 0.5f)),
+                            shape = RoundedCornerShape(16.dp),
                             enabled = !isLoading && (!showCooldown || cooldownRemaining == 0L)
                         ) {
                             if (isLoading) {
@@ -217,45 +178,30 @@ fun VerifyEmailScreen(navController: NavController) {
                                 )
                             } else if (showCooldown && cooldownRemaining > 0) {
                                 val text = when {
-                                    cooldownRemaining >= 3600 -> {
-                                        val horas = cooldownRemaining / 3600
-                                        val mins = (cooldownRemaining % 3600) / 60
-                                        if (mins > 0) "Espera ${horas}h ${mins}m"
-                                        else "Espera ${horas}h"
-                                    }
-                                    cooldownRemaining >= 60 -> {
-                                        val mins = cooldownRemaining / 60
-                                        val segs = cooldownRemaining % 60
-                                        "Espera ${mins}m ${segs}s"
-                                    }
-                                    else -> "Espera ${cooldownRemaining}s"
+                                    cooldownRemaining >= 60 -> "${cooldownRemaining / 60}m ${cooldownRemaining % 60}s"
+                                    else -> "${cooldownRemaining}s"
                                 }
-                                Text(text, fontWeight = FontWeight.Bold)
+                                Text("ESPERA $text", fontWeight = FontWeight.Bold)
                             } else {
-                                Text("Reenviar correo", fontWeight = FontWeight.Bold)
+                                Text("REENVIAR CORREO", fontWeight = FontWeight.Bold)
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(24.dp))
 
-                        // Enlace a soporte
-                        Text(
-                            text = "¿Problemas para verificar tu cuenta? ",
-                            color = Color.Gray,
-                            style = MaterialTheme.typography.bodySmall,
-                            textAlign = TextAlign.Center
-                        )
-                        Text(
-                            text = "Haz click aquí",
-                            color = Color(0xFFE50914),
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.clickable { viewMode = "support" }
-                        )
+                        Row {
+                            Text(text = "¿Problemas? ", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                text = "Contacto soporte",
+                                color = accentColor,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.clickable { viewMode = "support" }
+                            )
+                        }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(32.dp))
 
-                        // Botón iniciar sesión
                         Button(
                             onClick = {
                                 navController.navigate("login") {
@@ -264,82 +210,69 @@ fun VerifyEmailScreen(navController: NavController) {
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(50.dp),
+                                .height(56.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFE50914),
+                                containerColor = primaryColor,
                                 contentColor = Color.White
                             ),
-                            shape = RoundedCornerShape(4.dp)
+                            shape = RoundedCornerShape(16.dp)
                         ) {
-                            Text("Iniciar sesión", fontWeight = FontWeight.Bold)
+                            Text("INICIAR SESIÓN", fontWeight = FontWeight.Black)
                         }
                     }
                 }
 
                 "support" -> {
-                    // Botón retroceder (esquina superior izquierda)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Start
+                    IconButton(
+                        onClick = { viewMode = "verify" },
+                        modifier = Modifier.align(Alignment.Start)
                     ) {
-                        TextButton(onClick = { viewMode = "verify" }) {
-                            Text("← Volver", color = Color.White, fontSize = 16.sp)
-                        }
+                        Text("←", color = Color.White, fontSize = 24.sp)
                     }
 
                     Spacer(modifier = Modifier.height(32.dp))
 
-                    // Icono de correo
                     Text(
-                        text = "✉️",
-                        fontSize = 48.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    Text(
-                        text = "Soporte técnico",
+                        text = "Soporte Técnico",
                         color = Color.White,
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Text(
-                        text = "Si tienes problemas con la verificación de tu cuenta, escríbenos a:",
-                        color = Color.Gray,
-                        style = MaterialTheme.typography.bodySmall,
-                        textAlign = TextAlign.Center
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Email de soporte
+                    Text(
+                        text = "Si tienes problemas con la verificación, escríbenos a:",
+                        color = Color.Gray,
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
                     Surface(
-                        color = Color(0xFF333333),
-                        shape = RoundedCornerShape(8.dp),
+                        color = surfaceColor,
+                        shape = RoundedCornerShape(24.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
                             text = "soporte@animohub.com",
-                            color = Color(0xFFE50914),
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.titleMedium,
+                            color = primaryColor,
+                            fontWeight = FontWeight.ExtraBold,
+                            style = MaterialTheme.typography.titleLarge,
                             textAlign = TextAlign.Center,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp)
+                                .padding(24.dp)
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
                     Text(
-                        text = "Te responderemos a la brevedad posible.",
+                        text = "Responderemos lo antes posible.",
                         color = Color.Gray,
-                        style = MaterialTheme.typography.bodySmall,
-                        textAlign = TextAlign.Center
+                        style = MaterialTheme.typography.bodySmall
                     )
                 }
             }

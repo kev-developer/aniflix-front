@@ -8,7 +8,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -30,47 +29,45 @@ fun RegisterScreen(navController: NavController) {
     val authRepository = remember { AuthRepository() }
     val scope = rememberCoroutineScope()
 
+    val primaryColor = Color(0xFF7C4DFF)
+    val backgroundColor = Color(0xFF0F111A)
+    val surfaceColor = Color(0xFF1A1D29)
+    val accentColor = Color(0xFF03DAC5)
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(backgroundColor)
     ) {
-        // Gradient overlay
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = 0.8f),
-                            Color.Black
-                        )
-                    )
-                )
-        )
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
+                .padding(horizontal = 40.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             Text(
                 text = "ANIFLIX",
                 style = MaterialTheme.typography.displayMedium.copy(
-                    color = Color(0xFFE50914),
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 4.sp
+                    color = primaryColor,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 6.sp
                 )
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Text(
+                text = "Únete a la comunidad",
+                color = Color.White.copy(alpha = 0.5f),
+                fontSize = 14.sp,
+                letterSpacing = 1.sp
+            )
+
+            Spacer(modifier = Modifier.height(48.dp))
 
             Text(
-                text = "Regístrate",
+                text = "Crear Cuenta",
                 color = Color.White,
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.align(Alignment.Start)
             )
@@ -83,21 +80,20 @@ fun RegisterScreen(navController: NavController) {
                     email = it
                     error = ""
                 },
-                label = { Text("Correo electrónico", color = Color.Gray) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF333333), RoundedCornerShape(4.dp)),
+                placeholder = { Text("Correo electrónico", color = Color.Gray) },
+                modifier = Modifier.fillMaxWidth(),
                 colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color(0xFF333333),
-                    unfocusedContainerColor = Color(0xFF333333),
-                    focusedIndicatorColor = Color.Transparent,
+                    focusedContainerColor = surfaceColor,
+                    unfocusedContainerColor = surfaceColor,
+                    focusedIndicatorColor = primaryColor,
                     unfocusedIndicatorColor = Color.Transparent,
-                    cursorColor = Color.White,
+                    cursorColor = primaryColor,
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White
                 ),
-                shape = RoundedCornerShape(4.dp),
-                enabled = !isLoading
+                shape = RoundedCornerShape(16.dp),
+                enabled = !isLoading,
+                singleLine = true
             )
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -107,22 +103,21 @@ fun RegisterScreen(navController: NavController) {
                     password = it
                     error = ""
                 },
-                label = { Text("Contraseña", color = Color.Gray) },
+                placeholder = { Text("Contraseña", color = Color.Gray) },
                 visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF333333), RoundedCornerShape(4.dp)),
+                modifier = Modifier.fillMaxWidth(),
                 colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color(0xFF333333),
-                    unfocusedContainerColor = Color(0xFF333333),
-                    focusedIndicatorColor = Color.Transparent,
+                    focusedContainerColor = surfaceColor,
+                    unfocusedContainerColor = surfaceColor,
+                    focusedIndicatorColor = primaryColor,
                     unfocusedIndicatorColor = Color.Transparent,
-                    cursorColor = Color.White,
+                    cursorColor = primaryColor,
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White
                 ),
-                shape = RoundedCornerShape(4.dp),
-                enabled = !isLoading
+                shape = RoundedCornerShape(16.dp),
+                enabled = !isLoading,
+                singleLine = true
             )
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -132,29 +127,28 @@ fun RegisterScreen(navController: NavController) {
                     confirmPassword = it
                     error = ""
                 },
-                label = { Text("Confirmar contraseña", color = Color.Gray) },
+                placeholder = { Text("Confirmar contraseña", color = Color.Gray) },
                 visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF333333), RoundedCornerShape(4.dp)),
+                modifier = Modifier.fillMaxWidth(),
                 colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color(0xFF333333),
-                    unfocusedContainerColor = Color(0xFF333333),
-                    focusedIndicatorColor = Color.Transparent,
+                    focusedContainerColor = surfaceColor,
+                    unfocusedContainerColor = surfaceColor,
+                    focusedIndicatorColor = primaryColor,
                     unfocusedIndicatorColor = Color.Transparent,
-                    cursorColor = Color.White,
+                    cursorColor = primaryColor,
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White
                 ),
-                shape = RoundedCornerShape(4.dp),
-                enabled = !isLoading
+                shape = RoundedCornerShape(16.dp),
+                enabled = !isLoading,
+                singleLine = true
             )
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
             if (error.isNotEmpty()) {
                 Text(
                     text = error,
-                    color = Color(0xFFE87C03),
+                    color = Color(0xFFFF4081),
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.align(Alignment.Start)
                 )
@@ -163,7 +157,6 @@ fun RegisterScreen(navController: NavController) {
 
             Button(
                 onClick = {
-                    // Validaciones
                     if (email.isBlank() || password.isBlank() || confirmPassword.isBlank()) {
                         error = "Todos los campos son requeridos."
                         return@Button
@@ -173,7 +166,7 @@ fun RegisterScreen(navController: NavController) {
                         return@Button
                     }
                     if (password.length < 6) {
-                        error = "La contraseña debe tener al menos 6 caracteres."
+                        error = "Mínimo 6 caracteres."
                         return@Button
                     }
 
@@ -183,12 +176,9 @@ fun RegisterScreen(navController: NavController) {
                         val result = authRepository.registerWithEmail(email.trim(), password)
                         result.fold(
                             onSuccess = {
-                                // Enviar correo de verificación
                                 authRepository.sendEmailVerification()
-                                // Cerrar sesión para que no pueda acceder sin verificar
                                 authRepository.logout()
                                 isLoading = false
-                                // Navegar a pantalla de verificación
                                 navController.navigate("verify_email") {
                                     popUpTo("register") { inclusive = true }
                                 }
@@ -202,12 +192,12 @@ fun RegisterScreen(navController: NavController) {
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp),
+                    .height(56.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFE50914),
+                    containerColor = primaryColor,
                     contentColor = Color.White
                 ),
-                shape = RoundedCornerShape(4.dp),
+                shape = RoundedCornerShape(16.dp),
                 enabled = !isLoading
             ) {
                 if (isLoading) {
@@ -217,21 +207,23 @@ fun RegisterScreen(navController: NavController) {
                         strokeWidth = 2.dp
                     )
                 } else {
-                    Text("Regístrate", fontWeight = FontWeight.Bold)
+                    Text("REGISTRARSE", fontWeight = FontWeight.Black, letterSpacing = 1.sp)
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
-            Text(
-                text = "¿Ya tienes una cuenta? Inicia sesión.",
-                color = Color.White,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier
-                    .clickable(enabled = !isLoading) {
+            Row {
+                Text(text = "¿Ya tienes cuenta? ", color = Color.Gray)
+                Text(
+                    text = "Inicia sesión",
+                    color = accentColor,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clickable(enabled = !isLoading) {
                         navController.navigate("login")
                     }
-            )
+                )
+            }
         }
     }
 }

@@ -14,7 +14,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -39,7 +38,10 @@ fun ProfileSelectionScreen(
 
     var showCreateDialog by remember { mutableStateOf(false) }
 
-    // Cargar perfiles al entrar a la pantalla
+    val primaryColor = Color(0xFF7C4DFF)
+    val backgroundColor = Color(0xFF0F111A)
+    val surfaceColor = Color(0xFF1A1D29)
+
     LaunchedEffect(Unit) {
         profileViewModel.loadProfiles()
     }
@@ -47,36 +49,20 @@ fun ProfileSelectionScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(backgroundColor)
     ) {
-        // Gradient overlay
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF1A1A1A),
-                            Color.Black
-                        )
-                    )
-                )
-        )
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .padding(horizontal = 32.dp, vertical = 64.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Título
             Text(
                 text = "ANIFLIX",
                 style = MaterialTheme.typography.displaySmall.copy(
-                    color = Color(0xFFE50914),
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 4.sp
+                    color = primaryColor,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 6.sp
                 )
             )
 
@@ -86,16 +72,16 @@ fun ProfileSelectionScreen(
                 text = "¿Quién está viendo?",
                 style = MaterialTheme.typography.headlineSmall.copy(
                     color = Color.White,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Bold
                 )
             )
 
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(48.dp))
 
             when {
                 isLoading && profiles.isEmpty() -> {
                     CircularProgressIndicator(
-                        color = Color(0xFFE50914),
+                        color = primaryColor,
                         modifier = Modifier.size(48.dp)
                     )
                 }
@@ -103,27 +89,25 @@ fun ProfileSelectionScreen(
                 error != null && profiles.isEmpty() -> {
                     Text(
                         text = error ?: "Error desconocido",
-                        color = Color(0xFFE87C03),
+                        color = Color(0xFFFF4081),
                         style = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
                     Button(
                         onClick = { profileViewModel.loadProfiles() },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFE50914)
-                        )
+                        colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
+                        shape = RoundedCornerShape(16.dp)
                     ) {
                         Text("Reintentar")
                     }
                 }
 
                 else -> {
-                    // Grid de perfiles
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(2),
-                        horizontalArrangement = Arrangement.spacedBy(24.dp),
-                        verticalArrangement = Arrangement.spacedBy(24.dp),
+                        horizontalArrangement = Arrangement.spacedBy(32.dp),
+                        verticalArrangement = Arrangement.spacedBy(32.dp),
                         modifier = Modifier
                             .fillMaxWidth()
                             .wrapContentHeight()
@@ -132,6 +116,8 @@ fun ProfileSelectionScreen(
                             ProfileCard(
                                 name = profile.name,
                                 avatarUrl = profile.avatar,
+                                primaryColor = primaryColor,
+                                surfaceColor = surfaceColor,
                                 onClick = {
                                     ProfileManager.selectProfile(
                                         id = profile.id,
@@ -145,10 +131,11 @@ fun ProfileSelectionScreen(
                             )
                         }
 
-                        // Botón para agregar perfil (si hay menos de 5)
                         if (profiles.size < 5) {
                             item {
                                 AddProfileCard(
+                                    primaryColor = primaryColor,
+                                    surfaceColor = surfaceColor,
                                     onClick = { showCreateDialog = true }
                                 )
                             }
@@ -159,9 +146,10 @@ fun ProfileSelectionScreen(
         }
     }
 
-    // Diálogo para crear nuevo perfil
     if (showCreateDialog) {
         CreateProfileDialog(
+            primaryColor = primaryColor,
+            surfaceColor = surfaceColor,
             onDismiss = { showCreateDialog = false },
             onConfirm = { name ->
                 profileViewModel.createProfile(name = name) {
@@ -173,17 +161,16 @@ fun ProfileSelectionScreen(
     }
 }
 
-// ─── Profile Card ──────────────────────────────────────────────────────────────
-
 @Composable
 private fun ProfileCard(
     name: String,
     avatarUrl: String,
+    primaryColor: Color,
+    surfaceColor: Color,
     onClick: () -> Unit
 ) {
     Column(
         modifier = Modifier
-            .width(140.dp)
             .clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -191,8 +178,8 @@ private fun ProfileCard(
             modifier = Modifier
                 .size(120.dp)
                 .clip(CircleShape)
-                .border(3.dp, Color(0xFF333333), CircleShape)
-                .background(Color(0xFF1A1A1A)),
+                .background(surfaceColor)
+                .border(4.dp, primaryColor, CircleShape),
             contentAlignment = Alignment.Center
         ) {
             if (avatarUrl.isNotBlank()) {
@@ -205,24 +192,24 @@ private fun ProfileCard(
                     contentScale = ContentScale.Crop
                 )
             } else {
-                // Avatar por defecto: inicial del nombre
                 Text(
                     text = name.firstOrNull()?.uppercase() ?: "?",
                     style = MaterialTheme.typography.displaySmall.copy(
                         color = Color.White,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Black
                     )
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         Text(
             text = name,
-            color = Color(0xFFCCCCCC),
+            color = Color.White,
             style = MaterialTheme.typography.bodyLarge.copy(
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp
             ),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -231,13 +218,14 @@ private fun ProfileCard(
     }
 }
 
-// ─── Add Profile Card ─────────────────────────────────────────────────────────
-
 @Composable
-private fun AddProfileCard(onClick: () -> Unit) {
+private fun AddProfileCard(
+    primaryColor: Color,
+    surfaceColor: Color,
+    onClick: () -> Unit
+) {
     Column(
         modifier = Modifier
-            .width(140.dp)
             .clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -245,36 +233,38 @@ private fun AddProfileCard(onClick: () -> Unit) {
             modifier = Modifier
                 .size(120.dp)
                 .clip(CircleShape)
-                .border(3.dp, Color(0xFF333333), CircleShape)
-                .background(Color(0xFF1A1A1A)),
+                .background(surfaceColor)
+                .border(2.dp, Color.White.copy(alpha = 0.2f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = "+",
                 style = MaterialTheme.typography.displaySmall.copy(
-                    color = Color(0xFF666666),
-                    fontWeight = FontWeight.Light
+                    color = Color.White.copy(alpha = 0.5f),
+                    fontWeight = FontWeight.Light,
+                    fontSize = 48.sp
                 )
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "Agregar perfil",
-            color = Color(0xFF666666),
+            text = "Nuevo",
+            color = Color.White.copy(alpha = 0.5f),
             style = MaterialTheme.typography.bodyLarge.copy(
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp
             ),
             textAlign = TextAlign.Center
         )
     }
 }
 
-// ─── Create Profile Dialog ────────────────────────────────────────────────────
-
 @Composable
 private fun CreateProfileDialog(
+    primaryColor: Color,
+    surfaceColor: Color,
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
     isLoading: Boolean
@@ -283,37 +273,39 @@ private fun CreateProfileDialog(
 
     AlertDialog(
         onDismissRequest = { if (!isLoading) onDismiss() },
-        containerColor = Color(0xFF1A1A1A),
-        titleContentColor = Color.White,
-        textContentColor = Color.White,
+        containerColor = surfaceColor,
+        shape = RoundedCornerShape(24.dp),
         title = {
             Text(
-                "Nuevo perfil",
-                fontWeight = FontWeight.Bold,
+                "Nuevo Perfil",
+                fontWeight = FontWeight.ExtraBold,
                 color = Color.White
             )
         },
         text = {
             Column {
                 Text(
-                    "Ingresa el nombre del nuevo perfil",
-                    color = Color(0xFFCCCCCC),
+                    "Dale un nombre a tu nuevo perfil estelar.",
+                    color = Color.White.copy(alpha = 0.7f),
                     style = MaterialTheme.typography.bodyMedium
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-                OutlinedTextField(
+                Spacer(modifier = Modifier.height(24.dp))
+                TextField(
                     value = profileName,
                     onValueChange = { profileName = it },
-                    label = { Text("Nombre del perfil", color = Color.Gray) },
+                    placeholder = { Text("Nombre del perfil", color = Color.Gray) },
                     singleLine = true,
                     enabled = !isLoading,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFFE50914),
-                        unfocusedBorderColor = Color(0xFF333333),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Black.copy(alpha = 0.3f),
+                        unfocusedContainerColor = Color.Black.copy(alpha = 0.3f),
+                        focusedIndicatorColor = primaryColor,
+                        unfocusedIndicatorColor = Color.Transparent,
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White,
-                        cursorColor = Color.White
-                    )
+                        cursorColor = primaryColor
+                    ),
+                    shape = RoundedCornerShape(12.dp)
                 )
             }
         },
@@ -321,9 +313,8 @@ private fun CreateProfileDialog(
             Button(
                 onClick = { onConfirm(profileName.trim()) },
                 enabled = profileName.isNotBlank() && !isLoading,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFE50914)
-                )
+                colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
+                shape = RoundedCornerShape(12.dp)
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(
@@ -332,7 +323,7 @@ private fun CreateProfileDialog(
                         strokeWidth = 2.dp
                     )
                 } else {
-                    Text("Crear")
+                    Text("CREAR", fontWeight = FontWeight.Bold)
                 }
             }
         },
@@ -341,7 +332,7 @@ private fun CreateProfileDialog(
                 onClick = onDismiss,
                 enabled = !isLoading
             ) {
-                Text("Cancelar", color = Color.Gray)
+                Text("CANCELAR", color = Color.Gray, fontWeight = FontWeight.Bold)
             }
         }
     )

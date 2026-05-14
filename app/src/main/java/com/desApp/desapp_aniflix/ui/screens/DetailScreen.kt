@@ -235,24 +235,24 @@ fun DetailScreen(
     }
 
     if (isLoading) {
-        Box(modifier = Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = Color(0xFFE50914))
+        Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0F111A)), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = Color(0xFF7C4DFF))
         }
     } else if (contentItem != null) {
         val item = contentItem!!
 
-        Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0F111A))) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
             ) {
                 // ── Header / Cover ────────────────────────────────────────
-                Box(modifier = Modifier.fillMaxWidth().height(450.dp)) {
+                Box(modifier = Modifier.fillMaxWidth().height(480.dp)) {
                     AsyncImage(
                         model = item.coverImage ?: item.thumbnail,
                         contentDescription = item.title,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(bottomStart = 40.dp, bottomEnd = 40.dp)),
                         contentScale = ContentScale.Crop
                     )
 
@@ -263,8 +263,8 @@ fun DetailScreen(
                                 Brush.verticalGradient(
                                     colors = listOf(
                                         Color.Transparent,
-                                        Color.Black.copy(alpha = 0.5f),
-                                        Color.Black
+                                        Color(0xFF0F111A).copy(alpha = 0.6f),
+                                        Color(0xFF0F111A)
                                     )
                                 )
                             )
@@ -272,135 +272,144 @@ fun DetailScreen(
                 }
 
                 // ── Info ──────────────────────────────────────────────────
-                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                Column(modifier = Modifier.padding(horizontal = 24.dp)) {
                     Text(
                         text = item.title,
                         style = MaterialTheme.typography.headlineLarge,
                         color = Color.White,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.ExtraBold
                     )
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "98% para ti",
-                            color = Color(0xFF46D369),
+                            text = "ESTRENO",
+                            color = Color(0xFF03DAC5),
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                            fontSize = 12.sp,
+                            modifier = Modifier
+                                .background(Color(0xFF03DAC5).copy(alpha = 0.1f), RoundedCornerShape(4.dp))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(text = "2024", color = Color.Gray, fontSize = 14.sp)
                         Spacer(modifier = Modifier.width(12.dp))
                         Surface(
-                            color = Color(0xFF333333),
-                            shape = RoundedCornerShape(2.dp),
+                            color = Color(0xFF1A1D29),
+                            shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.padding(2.dp)
                         ) {
                             Text(
                                 text = if (item.contentType == "serie") "Serie" else "Película",
-                                color = Color.White,
+                                color = Color.White.copy(alpha = 0.7f),
                                 fontSize = 12.sp,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
                     // ── Botón Ver Ahora / Seguir Viendo ──────────────────
                     Button(
                         onClick = { navigateToPlayer(selectedEpisode) },
-                        modifier = Modifier.fillMaxWidth().height(45.dp),
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.White,
-                            contentColor = Color.Black
-                        ),
-                        shape = RoundedCornerShape(4.dp)
-                    ) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        if (initialProgress > 0.0) {
-                            Text("Seguir Viendo", fontWeight = FontWeight.Bold)
-                        } else {
-                            Text("Ver Ahora", fontWeight = FontWeight.Bold)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Button(
-                        onClick = { viewModel.addToWatchLater(item) },
-                        modifier = Modifier.fillMaxWidth().height(45.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF333333),
+                            containerColor = Color(0xFF7C4DFF),
                             contentColor = Color.White
                         ),
-                        shape = RoundedCornerShape(4.dp)
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
                     ) {
-                        Text("Ver más tarde", fontWeight = FontWeight.Bold)
+                        Icon(Icons.Default.PlayArrow, contentDescription = null)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            if (initialProgress > 0.0) "CONTINUAR VIENDO" else "REPRODUCIR AHORA",
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 1.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedButton(
+                        onClick = { viewModel.addToWatchLater(item) },
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color.White
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF1A1D29)),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Añadir a mi lista", fontWeight = FontWeight.Bold)
                     }
 
                     // ── Descripción ──────────────────────────────────────
                     if (!item.description.isNullOrBlank()) {
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(24.dp))
                         Text(
                             text = item.description,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.LightGray
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color.White.copy(alpha = 0.7f),
+                            lineHeight = 22.sp
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
                     // ── Géneros ──────────────────────────────────────────
                     if (genreNames.isNotEmpty()) {
                         Text(
-                            text = "Géneros: ${genreNames.joinToString(", ")}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.LightGray
+                            text = genreNames.joinToString("  •  "),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF7C4DFF),
+                            fontWeight = FontWeight.Bold
                         )
                     }
 
                     // ── Selector de Temporadas y Episodios ────────────────
                     if (item.contentType == "serie" && !item.seasons.isNullOrEmpty()) {
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(32.dp))
                         Text(
                             text = "Episodios",
                             style = MaterialTheme.typography.headlineSmall,
                             color = Color.White,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.ExtraBold
                         )
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
                         // Selector de temporada
                         val seasonCount = item.seasons.size
                         if (seasonCount > 1) {
                             Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 modifier = Modifier.horizontalScroll(rememberScrollState())
                             ) {
                                 item.seasons.forEachIndexed { index, season ->
-                                    FilterChip(
-                                        selected = index == selectedSeasonIndex,
-                                        onClick = { selectedSeasonIndex = index },
-                                        label = {
-                                            Text("Temporada ${season.number ?: index + 1}")
-                                        },
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = Color(0xFFE50914),
-                                            selectedLabelColor = Color.White,
-                                            containerColor = Color(0xFF333333),
-                                            labelColor = Color.LightGray
+                                    val isSelected = index == selectedSeasonIndex
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(if (isSelected) Color(0xFF7C4DFF) else Color(0xFF1A1D29))
+                                            .clickable { selectedSeasonIndex = index }
+                                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                                    ) {
+                                        Text(
+                                            "Temporada ${season.number ?: index + 1}",
+                                            color = if (isSelected) Color.White else Color.Gray,
+                                            fontWeight = FontWeight.Bold
                                         )
-                                    )
+                                    }
                                 }
                             }
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
                         }
 
-                        // Lista de episodios de la temporada seleccionada
+                        // Lista de episodios
                         if (currentSeasonEpisodes.isNotEmpty()) {
                             currentSeasonEpisodes.forEach { episode ->
                                 val isSelected = selectedEpisode?.let {
@@ -410,61 +419,44 @@ fun DetailScreen(
                                 Card(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(vertical = 4.dp)
+                                        .padding(vertical = 6.dp)
                                         .clickable {
-                                            // Click en episodio → navegar directo al reproductor
                                             selectedEpisode = episode
                                             navigateToPlayer(episode, resetProgress = true)
                                         },
                                     colors = CardDefaults.cardColors(
-                                        containerColor = if (isSelected) Color(0xFF1A1A1A) else Color(0xFF121212)
+                                        containerColor = if (isSelected) Color(0xFF7C4DFF).copy(alpha = 0.1f) else Color(0xFF1A1D29)
                                     ),
-                                    shape = RoundedCornerShape(8.dp)
+                                    shape = RoundedCornerShape(16.dp),
+                                    border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF7C4DFF)) else null
                                 ) {
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(12.dp),
+                                            .padding(16.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        // Icono de selección
-                                        if (isSelected) {
-                                            Icon(
-                                                imageVector = Icons.Default.CheckCircle,
-                                                contentDescription = "Seleccionado",
-                                                tint = Color(0xFFE50914),
-                                                modifier = Modifier.size(24.dp)
-                                            )
-                                        } else {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(24.dp)
-                                                    .border(
-                                                        width = 2.dp,
-                                                        color = Color.Gray,
-                                                        shape = CircleShape
-                                                    )
-                                            )
-                                        }
-
-                                        Spacer(modifier = Modifier.width(12.dp))
-
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(
                                                 text = "EP ${episode.number ?: ""}: ${episode.title ?: "Sin título"}",
-                                                color = if (isSelected) Color.White else Color.LightGray,
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                                fontSize = 14.sp,
-                                                maxLines = 2,
+                                                color = Color.White,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 15.sp,
+                                                maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                text = "Reproducir ahora",
+                                                color = Color.Gray,
+                                                fontSize = 12.sp
                                             )
                                         }
 
                                         Icon(
                                             Icons.Default.PlayArrow,
                                             contentDescription = "Reproducir",
-                                            tint = if (isSelected) Color(0xFFE50914) else Color.Gray,
-                                            modifier = Modifier.size(20.dp)
+                                            tint = if (isSelected) Color(0xFF7C4DFF) else Color.White.copy(alpha = 0.3f),
+                                            modifier = Modifier.size(28.dp)
                                         )
                                     }
                                 }
@@ -472,7 +464,7 @@ fun DetailScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(40.dp))
                 }
             }
 
@@ -482,6 +474,7 @@ fun DetailScreen(
                 modifier = Modifier
                     .padding(16.dp)
                     .align(Alignment.TopStart)
+                    .size(44.dp)
                     .clip(CircleShape)
                     .background(Color.Black.copy(alpha = 0.4f))
             ) {
@@ -489,48 +482,34 @@ fun DetailScreen(
             }
         }
     } else {
-        // Error state: mostrar mensaje de error con opción de reintentar
+        // Error state
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black),
+                .background(Color(0xFF0F111A)),
             contentAlignment = Alignment.Center
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
                 Text(
-                    text = "Error al cargar contenido",
-                    color = Color.Gray,
-                    fontSize = 18.sp,
-                    textAlign = TextAlign.Center
+                    text = "Ups! Algo salió mal",
+                    color = Color.White,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Verifica tu conexión e intenta de nuevo",
-                    color = Color.DarkGray,
-                    fontSize = 14.sp,
+                    text = "No pudimos cargar los detalles en este momento.",
+                    color = Color.Gray,
                     textAlign = TextAlign.Center
                 )
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(32.dp))
                 Button(
                     onClick = { retryTrigger++ },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFE50914),
-                        contentColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(4.dp)
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C4DFF)),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Reintentar")
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Reintentar", fontWeight = FontWeight.Bold)
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-                OutlinedButton(
-                    onClick = { navController.popBackStack() },
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.Gray),
-                    shape = RoundedCornerShape(4.dp)
-                ) {
-                    Text("Volver", fontWeight = FontWeight.Bold)
+                    Text("REINTENTAR", fontWeight = FontWeight.Bold)
                 }
             }
         }

@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
@@ -84,13 +85,13 @@ fun CatalogScreen(navController: NavController, viewModel: CatalogViewModel, pro
                 title = {
                     Text(
                         "ANIFLIX",
-                        color = Color(0xFFE50914),
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 2.sp
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 3.sp
                     )
                 },
                 actions = {
-                    TextButton(
+                    IconButton(
                         onClick = {
                             scope.launch {
                                 profileViewModel.clearProfiles()
@@ -102,15 +103,19 @@ fun CatalogScreen(navController: NavController, viewModel: CatalogViewModel, pro
                             }
                         }
                     ) {
-                        Text("Cerrar Sesión", color = Color.White, fontWeight = FontWeight.Bold)
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                            contentDescription = "Cerrar Sesión",
+                            tint = Color.White.copy(alpha = 0.8f)
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.Black.copy(alpha = 0.9f)
+                    containerColor = Color.Transparent
                 )
             )
         },
-        containerColor = Color.Black
+        containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize()) {
             PullToRefreshBox(
@@ -119,7 +124,6 @@ fun CatalogScreen(navController: NavController, viewModel: CatalogViewModel, pro
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .background(Color.Black)
             ) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -203,14 +207,13 @@ fun HeroSection(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp)
-            .padding(top = 8.dp)
+            .padding(16.dp)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(0.7f)
-                .clip(RoundedCornerShape(12.dp))
+                .aspectRatio(0.8f)
+                .clip(RoundedCornerShape(24.dp))
                 .clickable {
                     navController.navigate("detail/${item.contentType}/${item.id}")
                 }
@@ -223,7 +226,7 @@ fun HeroSection(
                 contentScale = ContentScale.Crop
             )
 
-            // ── Gradient overlay (transparent → black at bottom) ──
+            // ── Gradient overlay ──
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -231,10 +234,8 @@ fun HeroSection(
                         Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                Color.Black.copy(alpha = 0.85f)
-                            ),
-                            startY = 0f,
-                            endY = Float.POSITIVE_INFINITY
+                                MaterialTheme.colorScheme.background.copy(alpha = 0.9f)
+                            )
                         )
                     )
             )
@@ -242,86 +243,63 @@ fun HeroSection(
             // ── Content at bottom ──
             Column(
                 modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 16.dp, end = 16.dp, bottom = 20.dp)
+                    .align(Alignment.BottomCenter)
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Genre tags separated by " • "
+                Text(
+                    text = item.title.uppercase(),
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    textAlign = TextAlign.Center
+                )
+                
                 if (genreNames.isNotEmpty()) {
                     Text(
                         text = genreNames.joinToString(" • "),
-                        color = Color.White.copy(alpha = 0.85f),
+                        color = MaterialTheme.colorScheme.primary,
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 4.dp)
                     )
-                    Spacer(modifier = Modifier.height(10.dp))
                 }
 
-                // Action buttons row
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // ── Reproducir button ──
-                    Button(
-                        onClick = {
-                            // Series → T1 E1; Movies → direct playback
-                            val firstEpisode = item.seasons?.firstOrNull()?.episodes?.firstOrNull()
-                            val vPath = if (item.contentType == "serie" && firstEpisode != null) {
-                                firstEpisode.videoUrl ?: ""
-                            } else {
-                                item.videoUrl ?: ""
-                            }
-                            val epTitle = if (item.contentType == "serie" && firstEpisode != null) {
-                                firstEpisode.title ?: item.title
-                            } else {
-                                item.title
-                            }
-                            navController.navigate(
-                                "player/${item.contentType}/${item.id}" +
-                                "?videoPath=${Uri.encode(vPath)}" +
-                                "&title=${Uri.encode(item.title)}" +
-                                "&initialProgress=0" +
-                                "&seasonNumber=${firstEpisode?.seasonNumber ?: 1}" +
-                                "&episodeNumber=${firstEpisode?.episodeNumber ?: 1}" +
-                                "&episodeTitle=${Uri.encode(epTitle)}"
-                            )
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.White,
-                            contentColor = Color.Black
-                        ),
-                        shape = RoundedCornerShape(4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PlayArrow,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Reproducir",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        )
-                    }
+                Spacer(modifier = Modifier.height(16.dp))
 
-                    // ── + Mi lista button (placeholder) ──
-                    OutlinedButton(
-                        onClick = { /* placeholder - sin funcionalidad aún */ },
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color.White
-                        ),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.7f)),
-                        shape = RoundedCornerShape(4.dp)
-                    ) {
-                        Text(
-                            text = "+ Mi lista",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                Button(
+                    onClick = {
+                        val firstEpisode = item.seasons?.firstOrNull()?.episodes?.firstOrNull()
+                        val vPath = if (item.contentType == "serie" && firstEpisode != null) {
+                            firstEpisode.videoUrl ?: ""
+                        } else {
+                            item.videoUrl ?: ""
+                        }
+                        val epTitle = if (item.contentType == "serie" && firstEpisode != null) {
+                            firstEpisode.title ?: item.title
+                        } else {
+                            item.title
+                        }
+                        navController.navigate(
+                            "player/${item.contentType}/${item.id}" +
+                            "?videoPath=${Uri.encode(vPath)}" +
+                            "&title=${Uri.encode(item.title)}" +
+                            "&initialProgress=0" +
+                            "&seasonNumber=${firstEpisode?.seasonNumber ?: 1}" +
+                            "&episodeNumber=${firstEpisode?.episodeNumber ?: 1}" +
+                            "&episodeTitle=${Uri.encode(epTitle)}"
                         )
-                    }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth(0.7f).height(48.dp)
+                ) {
+                    Icon(Icons.Default.PlayArrow, null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("VER AHORA", fontWeight = FontWeight.Black)
                 }
             }
         }
@@ -359,7 +337,7 @@ fun ContentRow(items: List<ContentItem>, navController: NavController) {
 fun ContentPoster(item: ContentItem, onClick: () -> Unit) {
     Column(
         modifier = Modifier
-            .width(110.dp)
+            .width(130.dp)
             .clickable { onClick() }
     ) {
         AsyncImage(
@@ -367,9 +345,17 @@ fun ContentPoster(item: ContentItem, onClick: () -> Unit) {
             contentDescription = item.title,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(160.dp)
-                .clip(RoundedCornerShape(4.dp)),
+                .height(180.dp)
+                .clip(RoundedCornerShape(16.dp)),
             contentScale = ContentScale.Crop
+        )
+        Text(
+            text = item.title,
+            color = Color.White.copy(alpha = 0.9f),
+            fontSize = 12.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 8.dp, start = 4.dp)
         )
     }
 }

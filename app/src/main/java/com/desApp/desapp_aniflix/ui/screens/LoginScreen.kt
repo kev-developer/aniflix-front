@@ -31,25 +31,32 @@ fun LoginScreen(navController: NavController) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(Color(0xFF0F111A))
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 32.dp),
+                .padding(horizontal = 40.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             Text(
                 text = "ANIFLIX",
                 style = MaterialTheme.typography.displayMedium.copy(
-                    color = Color(0xFFE50914),
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 4.sp
+                    color = Color(0xFF7C4DFF),
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 6.sp
                 )
             )
+            
+            Text(
+                text = "Tu universo de anime infinito",
+                color = Color.White.copy(alpha = 0.5f),
+                fontSize = 14.sp,
+                letterSpacing = 1.sp
+            )
 
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(60.dp))
 
             TextField(
                 value = email,
@@ -57,21 +64,20 @@ fun LoginScreen(navController: NavController) {
                     email = it
                     error = ""
                 },
-                label = { Text("Email", color = Color.Gray) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF333333), RoundedCornerShape(4.dp)),
+                placeholder = { Text("Correo electrónico", color = Color.Gray) },
+                modifier = Modifier.fillMaxWidth(),
                 colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color(0xFF333333),
-                    unfocusedContainerColor = Color(0xFF333333),
-                    focusedIndicatorColor = Color.Transparent,
+                    focusedContainerColor = Color(0xFF1A1D29),
+                    unfocusedContainerColor = Color(0xFF1A1D29),
+                    focusedIndicatorColor = Color(0xFF7C4DFF),
                     unfocusedIndicatorColor = Color.Transparent,
-                    cursorColor = Color.White,
+                    cursorColor = Color(0xFF7C4DFF),
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White
                 ),
-                shape = RoundedCornerShape(4.dp),
-                enabled = !isLoading
+                shape = RoundedCornerShape(16.dp),
+                enabled = !isLoading,
+                singleLine = true
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -82,35 +88,32 @@ fun LoginScreen(navController: NavController) {
                     password = it
                     error = ""
                 },
-                label = { Text("Contraseña", color = Color.Gray) },
+                placeholder = { Text("Contraseña", color = Color.Gray) },
                 visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF333333), RoundedCornerShape(4.dp)),
+                modifier = Modifier.fillMaxWidth(),
                 colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color(0xFF333333),
-                    unfocusedContainerColor = Color(0xFF333333),
-                    focusedIndicatorColor = Color.Transparent,
+                    focusedContainerColor = Color(0xFF1A1D29),
+                    unfocusedContainerColor = Color(0xFF1A1D29),
+                    focusedIndicatorColor = Color(0xFF7C4DFF),
                     unfocusedIndicatorColor = Color.Transparent,
-                    cursorColor = Color.White,
+                    cursorColor = Color(0xFF7C4DFF),
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White
                 ),
-                shape = RoundedCornerShape(4.dp),
-                enabled = !isLoading
+                shape = RoundedCornerShape(16.dp),
+                enabled = !isLoading,
+                singleLine = true
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
             if (error.isNotEmpty()) {
                 Text(
                     text = error,
-                    color = Color(0xFFE87C03),
+                    color = Color(0xFFFF4081),
                     style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.align(Alignment.Start)
+                    modifier = Modifier.padding(bottom = 16.dp)
                 )
-
-                Spacer(modifier = Modifier.height(16.dp))
             }
 
             Button(
@@ -126,9 +129,7 @@ fun LoginScreen(navController: NavController) {
                         isLoading = false
                         result.fold(
                             onSuccess = {
-                                // Verificar si el email está verificado
                                 if (!authRepository.isEmailVerified()) {
-                                    // NO cerramos sesión para que sendEmailVerification() funcione
                                     navController.navigate("verify_email") {
                                         popUpTo("login") { inclusive = true }
                                     }
@@ -139,19 +140,19 @@ fun LoginScreen(navController: NavController) {
                                 }
                             },
                             onFailure = { exception ->
-                                error = exception.message ?: "Error al iniciar sesión."
+                                error = "Credenciales incorrectas o problema de red."
                             }
                         )
                     }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp),
+                    .height(56.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFE50914),
+                    containerColor = Color(0xFF7C4DFF),
                     contentColor = Color.White
                 ),
-                shape = RoundedCornerShape(4.dp),
+                shape = RoundedCornerShape(16.dp),
                 enabled = !isLoading
             ) {
                 if (isLoading) {
@@ -161,30 +162,23 @@ fun LoginScreen(navController: NavController) {
                         strokeWidth = 2.dp
                     )
                 } else {
-                    Text("Iniciar sesión", fontWeight = FontWeight.Bold)
+                    Text("INICIAR SESIÓN", fontWeight = FontWeight.Black, letterSpacing = 1.sp)
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
-            Text(
-                text = "¿Primera vez en Aniflix? Suscríbete ya.",
-                color = Color.White,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier
-                    .clickable(enabled = !isLoading) {
+            Row {
+                Text(text = "¿Eres nuevo? ", color = Color.Gray)
+                Text(
+                    text = "Crea una cuenta",
+                    color = Color(0xFF03DAC5),
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clickable(enabled = !isLoading) {
                         navController.navigate("register")
                     }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "Esta página está protegida por Google reCAPTCHA para asegurar que no eres un robot.",
-                color = Color.Gray,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
+                )
+            }
         }
-}
+    }
 }

@@ -3,14 +3,14 @@ package com.desApp.desapp_aniflix.ui.screens
 import android.app.Activity
 import android.content.pm.ActivityInfo
 import android.net.Uri
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -44,22 +44,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-/**
- * Pantalla de reproducción de video con ExoPlayer.
- * Soporta:
- * - Reproducción desde donde se quedó (initialProgress)
- * - Guardado periódico de progreso (cada 5 segundos)
- * - Guardado al salir
- *
- * @param contentType "serie" o "pelicula"
- * @param contentId ID del documento en Firestore
- * @param videoPath Ruta del video en S3
- * @param title Título del episodio/contenido
- * @param initialProgress Progreso inicial 0.0-1.0 para reanudar
- * @param seasonNumber Número de temporada (para series)
- * @param episodeNumber Número de episodio (para series)
- * @param episodeTitle Título del episodio (para series)
- */
 @Composable
 fun VideoPlayerScreen(
     contentType: String?,
@@ -76,13 +60,10 @@ fun VideoPlayerScreen(
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var hasSeeked by remember { mutableStateOf(false) }
-    // Estado de reintento automático
     var retryAttempt by remember { mutableIntStateOf(0) }
     var isRetrying by remember { mutableStateOf(false) }
     var retryTrigger by remember { mutableIntStateOf(0) }
-    // Estado para mostrar/ocultar controles (Netflix style)
     var showControls by remember { mutableStateOf(true) }
-    // Estado para la barra de progreso (seekbar)
     var sliderPosition by remember { mutableStateOf(0f) }
     var isDragging by remember { mutableStateOf(false) }
     var currentPositionMs by remember { mutableStateOf(0L) }
@@ -91,19 +72,22 @@ fun VideoPlayerScreen(
     val context = LocalContext.current
     val activity = context as? Activity
 
-    // Forzar orientación landscape (horizontal) al entrar al reproductor
+    val primaryColor = Color(0xFF7C4DFF)
+    val backgroundColor = Color(0xFF0F111A)
+    val surfaceColor = Color(0xFF1A1D29)
+    val accentColor = Color(0xFF03DAC5)
+
     DisposableEffect(Unit) {
         val originalOrientation = activity?.requestedOrientation
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         onDispose {
-            // Restaurar orientación original al salir
             activity?.requestedOrientation = originalOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         }
     }
-    // Auto-ocultar controles tras 3 segundos (Netflix style)
+
     LaunchedEffect(showControls) {
         if (showControls) {
-            delay(3000)
+            delay(4000)
             showControls = false
         }
     }
@@ -111,7 +95,6 @@ fun VideoPlayerScreen(
     val scope = rememberCoroutineScope()
     val MAX_RETRIES = 3
 
-    // Obtener URL firmada desde el backend con reintento automático
     LaunchedEffect(videoPath, retryTrigger) {
         if (videoPath.isNullOrBlank()) {
             errorMessage = "No hay video disponible para este contenido"
@@ -140,14 +123,12 @@ fun VideoPlayerScreen(
                     isLoading = false
                     isRetrying = false
                 } else {
-                    // Esperar 3 segundos antes de reintentar
                     delay(3000)
                 }
             }
         }
     }
 
-    // Crear ExoPlayer cuando tengamos la URL firmada
     val exoPlayer = remember(signedUrl) {
         signedUrl?.let { url ->
             val dataSourceFactory = DefaultHttpDataSource.Factory()
@@ -164,7 +145,6 @@ fun VideoPlayerScreen(
                     prepare()
                     playWhenReady = true
 
-                    // Listener para seek al progreso inicial cuando el video esté listo
                     addListener(object : Player.Listener {
                         override fun onPlaybackStateChanged(playbackState: Int) {
                             if (playbackState == Player.STATE_READY && !hasSeeked && initialProgress > 0.0) {
@@ -181,12 +161,11 @@ fun VideoPlayerScreen(
         }
     }
 
-    // ── Guardado periódico de progreso (cada 5 segundos) ─────────────────
     LaunchedEffect(exoPlayer) {
         if (exoPlayer == null) return@LaunchedEffect
 
         while (isActive) {
-            delay(5000) // Cada 5 segundos
+            delay(5000)
             val player = exoPlayer
             val profileId = ProfileManager.currentProfileId ?: continue
             val cId = contentId ?: continue
@@ -218,16 +197,13 @@ fun VideoPlayerScreen(
                                     currentEpisode = episodeData
                                 )
                             )
-                        } catch (_: Exception) {
-                            // Silenciar errores de guardado
-                        }
+                        } catch (_: Exception) {}
                     }
                 }
             }
         }
     }
 
-    // ── Polling de posición del reproductor para la barra de progreso ──
     LaunchedEffect(exoPlayer) {
         if (exoPlayer == null) return@LaunchedEffect
         while (isActive) {
@@ -244,7 +220,6 @@ fun VideoPlayerScreen(
         }
     }
 
-    // Liberar el player al salir
     DisposableEffect(exoPlayer) {
         onDispose {
             exoPlayer?.release()
@@ -263,26 +238,18 @@ fun VideoPlayerScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    CircularProgressIndicator(color = Color(0xFFE50914))
-                    Spacer(modifier = Modifier.height(16.dp))
+                    CircularProgressIndicator(color = primaryColor, strokeWidth = 6.dp, modifier = Modifier.size(64.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
                     Text(
                         text = if (isRetrying) {
-                            "Reintentando (${retryAttempt}/$MAX_RETRIES)..."
+                            "REINTENTANDO (${retryAttempt}/$MAX_RETRIES)..."
                         } else {
-                            "Cargando video..."
+                            "ESTABLECIENDO CONEXIÓN..."
                         },
                         color = Color.White,
-                        fontSize = 16.sp
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 2.sp
                     )
-                    if (isRetrying) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "El servidor está tardando en responder",
-                            color = Color.Gray,
-                            fontSize = 13.sp,
-                            textAlign = TextAlign.Center
-                        )
-                    }
                 }
             }
 
@@ -294,16 +261,15 @@ fun VideoPlayerScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Text(text = "⚠️", fontSize = 48.sp)
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(text = "📡", fontSize = 64.sp)
+                    Spacer(modifier = Modifier.height(24.dp))
                     Text(
-                        text = errorMessage ?: "Error desconocido",
+                        text = errorMessage ?: "Error de señal estelar",
                         color = Color.White,
-                        fontSize = 16.sp,
+                        style = MaterialTheme.typography.titleLarge,
                         textAlign = TextAlign.Center
                     )
-                    Spacer(modifier = Modifier.height(24.dp))
-                    // Botón Reintentar manual
+                    Spacer(modifier = Modifier.height(32.dp))
                     Button(
                         onClick = {
                             signedUrl = null
@@ -313,29 +279,20 @@ fun VideoPlayerScreen(
                             isRetrying = false
                             retryTrigger++
                         },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFE50914)
-                        ),
-                        shape = RoundedCornerShape(4.dp)
+                        colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
+                        shape = RoundedCornerShape(16.dp)
                     ) {
-                        Text("Reintentar", fontWeight = FontWeight.Bold)
+                        Text("REINTENTAR", fontWeight = FontWeight.Bold)
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    // Botón Volver
-                    OutlinedButton(
-                        onClick = { navController.popBackStack() },
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.Gray),
-                        shape = RoundedCornerShape(4.dp)
-                    ) {
-                        Text("Volver", fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    TextButton(onClick = { navController.popBackStack() }) {
+                        Text("VOLVER", color = Color.Gray, fontWeight = FontWeight.Bold)
                     }
                 }
             }
 
             exoPlayer != null && signedUrl != null -> {
                 Box(modifier = Modifier.fillMaxSize()) {
-                    // Layer 1: Reproductor de video (sin controles ExoPlayer por defecto)
                     AndroidView(
                         factory = { ctx ->
                             PlayerView(ctx).apply {
@@ -349,20 +306,16 @@ fun VideoPlayerScreen(
                         modifier = Modifier.fillMaxSize()
                     )
 
-                    // Layer 2: Overlay de controles personalizados (Netflix style)
                     if (showControls) {
-                        // Fondo semitransparente — tap para ocultar
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.35f))
+                                .background(Color.Black.copy(alpha = 0.5f))
                                 .clickable { showControls = false }
                         )
 
-                        // ── Botón de retroceso (top-left) ──
                         IconButton(
                             onClick = {
-                                // Guardar progreso antes de salir
                                 scope.launch {
                                     val profileId = ProfileManager.currentProfileId
                                     val cId = contentId
@@ -399,172 +352,114 @@ fun VideoPlayerScreen(
                                 navController.popBackStack()
                             },
                             modifier = Modifier
-                                .padding(16.dp)
+                                .padding(24.dp)
                                 .align(Alignment.TopStart)
+                                .size(48.dp)
                                 .clip(CircleShape)
-                                .background(Color.Black.copy(alpha = 0.6f))
+                                .background(surfaceColor)
                         ) {
                             Icon(
-                                Icons.Default.ArrowBack,
+                                Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Atrás",
                                 tint = Color.White
                             )
                         }
 
-                        // ── Título centrado en la parte superior ──
                         if (!title.isNullOrBlank()) {
                             Text(
-                                text = title,
+                                text = title.uppercase(),
                                 color = Color.White,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium,
-                                textAlign = TextAlign.Center,
-                                maxLines = 1,
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 2.sp,
                                 modifier = Modifier
                                     .align(Alignment.TopCenter)
-                                    .padding(top = 28.dp, start = 72.dp, end = 72.dp)
+                                    .padding(top = 32.dp)
                             )
                         }
 
-                        // ── Controles CENTRALES: Retroceder 10s | Play/Pause | Adelantar 10s ──
                         Row(
-                            modifier = Modifier
-                                .align(Alignment.Center),
-                            horizontalArrangement = Arrangement.spacedBy(40.dp),
+                            modifier = Modifier.align(Alignment.Center),
+                            horizontalArrangement = Arrangement.spacedBy(48.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Retroceder 10s — flecha circular izquierda
                             IconButton(
                                 onClick = {
-                                    exoPlayer?.seekTo(
-                                        (exoPlayer?.currentPosition ?: 0L) - 10000
-                                    )
+                                    exoPlayer.seekTo(exoPlayer.currentPosition - 10000)
                                     showControls = true
                                 },
                                 modifier = Modifier
-                                    .size(56.dp)
-                                    .background(Color.White.copy(alpha = 0.2f), CircleShape)
+                                    .size(64.dp)
+                                    .background(surfaceColor, CircleShape)
                             ) {
-                                CircularArrowIcon(
-                                    pointingRight = false,
-                                    modifier = Modifier.size(28.dp)
-                                )
+                                CircularArrowIcon(pointingRight = false, color = accentColor, modifier = Modifier.size(32.dp))
                             }
 
-                            // Play / Pause
                             IconButton(
                                 onClick = {
-                                    if (exoPlayer?.isPlaying == true) {
-                                        exoPlayer?.pause()
-                                    } else {
-                                        exoPlayer?.play()
-                                    }
+                                    if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
                                     showControls = true
                                 },
                                 modifier = Modifier
-                                    .size(72.dp)
-                                    .background(Color.White.copy(alpha = 0.3f), CircleShape)
+                                    .size(96.dp)
+                                    .background(primaryColor, CircleShape)
                             ) {
-                                if (exoPlayer?.isPlaying == true) {
-                                    // Icono de pausa personalizado (dos barras)
+                                if (exoPlayer.isPlaying) {
                                     Row(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Box(
-                                            Modifier
-                                                .width(6.dp)
-                                                .height(24.dp)
-                                                .background(Color.White, RoundedCornerShape(1.dp))
-                                        )
-                                        Box(
-                                            Modifier
-                                                .width(6.dp)
-                                                .height(24.dp)
-                                                .background(Color.White, RoundedCornerShape(1.dp))
-                                        )
+                                        Box(Modifier.width(8.dp).height(32.dp).background(Color.White, RoundedCornerShape(2.dp)))
+                                        Box(Modifier.width(8.dp).height(32.dp).background(Color.White, RoundedCornerShape(2.dp)))
                                     }
                                 } else {
-                                    Icon(
-                                        Icons.Default.PlayArrow,
-                                        contentDescription = "Reproducir",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(40.dp)
-                                    )
+                                    Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(56.dp))
                                 }
                             }
 
-                            // Adelantar 10s — flecha circular derecha (Replay espejado)
                             IconButton(
                                 onClick = {
-                                    exoPlayer?.seekTo(
-                                        (exoPlayer?.currentPosition ?: 0L) + 10000
-                                    )
+                                    exoPlayer.seekTo(exoPlayer.currentPosition + 10000)
                                     showControls = true
                                 },
                                 modifier = Modifier
-                                    .size(56.dp)
-                                    .background(Color.White.copy(alpha = 0.2f), CircleShape)
+                                    .size(64.dp)
+                                    .background(surfaceColor, CircleShape)
                             ) {
-                                CircularArrowIcon(
-                                    pointingRight = true,
-                                    modifier = Modifier.size(28.dp)
-                                )
+                                CircularArrowIcon(pointingRight = true, color = accentColor, modifier = Modifier.size(32.dp))
                             }
                         }
 
-                        // ── Barra de progreso inferior (seekable) ──
                         Column(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                                .padding(horizontal = 48.dp, vertical = 24.dp)
                         ) {
                             Slider(
                                 value = sliderPosition,
-                                onValueChange = { newVal ->
-                                    sliderPosition = newVal
-                                    isDragging = true
-                                },
+                                onValueChange = { sliderPosition = it; isDragging = true },
                                 onValueChangeFinished = {
-                                    exoPlayer?.seekTo((sliderPosition * durationMs).toLong())
+                                    exoPlayer.seekTo((sliderPosition * durationMs).toLong())
                                     isDragging = false
                                     showControls = true
                                 },
                                 colors = SliderDefaults.colors(
-                                    thumbColor = Color(0xFFE50914),
-                                    activeTrackColor = Color(0xFFE50914),
-                                    inactiveTrackColor = Color.White.copy(alpha = 0.3f),
-                                    inactiveTickColor = Color.Transparent
-                                ),
-                                modifier = Modifier.fillMaxWidth()
+                                    thumbColor = accentColor,
+                                    activeTrackColor = primaryColor,
+                                    inactiveTrackColor = Color.White.copy(alpha = 0.2f)
+                                )
                             )
-                            // Tiempos: actual / total
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 4.dp),
+                                modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(
-                                    text = formatTime(currentPositionMs),
-                                    color = Color.White.copy(alpha = 0.8f),
-                                    fontSize = 12.sp
-                                )
-                                Text(
-                                    text = formatTime(durationMs),
-                                    color = Color.White.copy(alpha = 0.8f),
-                                    fontSize = 12.sp
-                                )
+                                Text(formatTime(currentPositionMs), color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Text(formatTime(durationMs), color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     } else {
-                        // Layer 3 (controls hidden): overlay invisible para detectar tap
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clickable { showControls = true }
-                        )
+                        Box(modifier = Modifier.fillMaxSize().clickable { showControls = true })
                     }
                 }
             }
@@ -572,41 +467,26 @@ fun VideoPlayerScreen(
     }
 }
 
-/**
- * Icono de flecha circular (flecha dentro de un círculo)
- * @param pointingRight false = apunta a la izquierda (retroceder), true = apunta a la derecha (adelantar)
- */
 @Composable
-private fun CircularArrowIcon(
-    pointingRight: Boolean,
-    modifier: Modifier = Modifier
-) {
+private fun CircularArrowIcon(pointingRight: Boolean, color: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
         val cx = size.width / 2
         val cy = size.height / 2
-        val r = size.minDimension / 2 * 0.7f
-
-        // Círculo
-        drawCircle(Color.White, r, Offset(cx, cy), style = Stroke(2.dp.toPx()))
-
-        // Punta de flecha
-        val arrowLen = r * 0.35f
-        val tipX = if (pointingRight) cx + r * 0.25f else cx - r * 0.25f
-        val baseX = if (pointingRight) cx - r * 0.15f else cx + r * 0.15f
-
+        val r = size.minDimension / 2 * 0.8f
+        drawCircle(color, r, Offset(cx, cy), style = Stroke(3.dp.toPx()))
+        val arrowLen = r * 0.4f
+        val tipX = if (pointingRight) cx + r * 0.3f else cx - r * 0.3f
+        val baseX = if (pointingRight) cx - r * 0.2f else cx + r * 0.2f
         val path = Path().apply {
             moveTo(tipX, cy)
-            lineTo(baseX, cy - arrowLen * 0.6f)
-            lineTo(baseX, cy + arrowLen * 0.6f)
+            lineTo(baseX, cy - arrowLen * 0.7f)
+            lineTo(baseX, cy + arrowLen * 0.7f)
             close()
         }
-        drawPath(path, Color.White)
+        drawPath(path, color)
     }
 }
 
-/**
- * Formatea milisegundos a formato MM:SS o HH:MM:SS
- */
 private fun formatTime(ms: Long): String {
     val totalSeconds = ms / 1000
     val hours = totalSeconds / 3600

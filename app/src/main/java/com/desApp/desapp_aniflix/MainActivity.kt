@@ -27,18 +27,21 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            val netflixRed = Color(0xFFE50914)
-            val netflixDarkColorScheme = darkColorScheme(
-                primary = netflixRed,
+            val primaryColor = Color(0xFF7C4DFF) // Vibrant Violet
+            val backgroundColor = Color(0xFF0F111A) // Deep Space Navy
+            val surfaceColor = Color(0xFF1A1D29) // Dark Surface
+            
+            val modernDarkColorScheme = darkColorScheme(
+                primary = primaryColor,
                 onPrimary = Color.White,
-                background = Color.Black,
+                background = backgroundColor,
                 onBackground = Color.White,
-                surface = Color(0xFF121212),
+                surface = surfaceColor,
                 onSurface = Color.White,
-                error = netflixRed
+                error = Color(0xFFFF4081)
             )
 
-            MaterialTheme(colorScheme = netflixDarkColorScheme) {
+            MaterialTheme(colorScheme = modernDarkColorScheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
