@@ -37,6 +37,14 @@ interface ContentApiService {
 
     @GET("api/genres")
     suspend fun getGenres(): GenreResponse
+
+    @GET("api/search")
+    suspend fun search(
+        @Query("q") query: String? = null,
+        @Query("genre") genre: String? = null,
+        @Query("type") type: String = "all",
+        @Query("limit") limit: Int = 20
+    ): ContentResponse
 }
 
 object ContentRetrofitClient {

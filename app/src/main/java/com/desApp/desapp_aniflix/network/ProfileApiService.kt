@@ -31,6 +31,16 @@ data class CreateProfileResponse(
     val message: String
 )
 
+data class UpdateProfileRequest(
+    val name: String? = null,
+    val avatar: String? = null
+)
+
+data class DeleteProfileResponse(
+    val success: Boolean,
+    val message: String? = null
+)
+
 // ─── API Interface ─────────────────────────────────────────────────────────────
 
 interface ProfileApiService {
@@ -40,6 +50,17 @@ interface ProfileApiService {
 
     @POST("api/profiles")
     suspend fun createProfile(@Body request: CreateProfileRequest): CreateProfileResponse
+
+    @retrofit2.http.PUT("api/profiles/{id}")
+    suspend fun updateProfile(
+        @retrofit2.http.Path("id") id: String,
+        @Body request: UpdateProfileRequest
+    ): CreateProfileResponse
+
+    @retrofit2.http.DELETE("api/profiles/{id}")
+    suspend fun deleteProfile(
+        @retrofit2.http.Path("id") id: String
+    ): DeleteProfileResponse
 }
 
 // ─── Shared CloudFront Header Interceptor ─────────────────────────────────────

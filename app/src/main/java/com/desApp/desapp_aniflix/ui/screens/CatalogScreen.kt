@@ -9,7 +9,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
@@ -30,27 +29,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
-import com.desApp.desapp_aniflix.auth.AuthRepository
-import com.desApp.desapp_aniflix.auth.ProfileManager
 import com.desApp.desapp_aniflix.model.ContentItem
 import com.desApp.desapp_aniflix.model.ContinueWatchingItem
-import com.desApp.desapp_aniflix.ui.ProfileViewModel
 import com.desApp.desapp_aniflix.model.GenreItem
 import com.desApp.desapp_aniflix.ui.CatalogViewModel
-import kotlinx.coroutines.launch
 import kotlin.random.Random
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CatalogScreen(navController: NavController, viewModel: CatalogViewModel, profileViewModel: ProfileViewModel) {
+fun CatalogScreen(navController: NavController, viewModel: CatalogViewModel) {
     val contentItems by viewModel.contentItems.collectAsState()
     val genres by viewModel.genres.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val continueWatching by viewModel.continueWatching.collectAsState()
     val watchLater = viewModel.watchLater
-    val authRepository = remember { AuthRepository() }
-    val scope = rememberCoroutineScope()
 
     // Cargar Continue Watching cuando la pantalla se compone
     // (útil si el ViewModel se creó antes de que el perfil estuviera seleccionado)
@@ -90,26 +83,6 @@ fun CatalogScreen(navController: NavController, viewModel: CatalogViewModel, pro
                         letterSpacing = 3.sp
                     )
                 },
-                actions = {
-                    IconButton(
-                        onClick = {
-                            scope.launch {
-                                profileViewModel.clearProfiles()
-                                ProfileManager.clear()
-                                authRepository.logout()
-                                navController.navigate("login") {
-                                    popUpTo("catalog") { inclusive = true }
-                                }
-                            }
-                        }
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                            contentDescription = "Cerrar Sesión",
-                            tint = Color.White.copy(alpha = 0.8f)
-                        )
-                    }
-                },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = Color.Transparent
                 )
@@ -117,79 +90,77 @@ fun CatalogScreen(navController: NavController, viewModel: CatalogViewModel, pro
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
-        Box(modifier = Modifier.fillMaxSize()) {
-            PullToRefreshBox(
-                isRefreshing = isRefreshing,
-                onRefresh = { viewModel.refresh() },
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = { viewModel.refresh() },
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 16.dp)
             ) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 16.dp)
-                ) {
-                    // ── Hero Banner ──────────────────────────────────────────────
-                    if (heroItem != null) {
-                        item {
-                            HeroSection(
-                                item = heroItem,
-                                genreNames = heroGenreNames,
-                                navController = navController
-                            )
-                        }
-                    }
-
-                    // ── Continue Watching ────────────────────────────────────────
-                    if (continueWatching.isNotEmpty()) {
-                        item {
-                            SectionHeader("Continuar Viendo")
-                            ContinueWatchingRow(items = continueWatching, navController = navController)
-                        }
-                    }
-
-                    if (watchLater.isNotEmpty()) {
-                        item {
-                            SectionHeader("Mi lista")
-                            ContentRow(items = watchLater, navController = navController)
-                        }
-                    }
-
+                // ── Hero Banner ──────────────────────────────────────────
+                if (heroItem != null) {
                     item {
-                        SectionHeader("Recientemente Agregados")
-                        ContentRow(items = contentItems, navController = navController)
-                    }
-
-                    items(activeGenres) { genre ->
-                        SectionHeader(genre.name)
-                        val genreItems = contentItems.filter { item ->
-                            item.genres?.contains(genre.id) == true
-                        }
-                        ContentRow(items = genreItems, navController = navController)
+                        HeroSection(
+                            item = heroItem,
+                            genreNames = heroGenreNames,
+                            navController = navController
+                        )
                     }
                 }
-            }
 
-            // ── Loading Overlay (full-screen spinner while data loads) ─────
-            if (isLoading) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator(
-                            color = Color(0xFFE50914),
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Cargando...",
-                            color = Color.White.copy(alpha = 0.7f),
-                            fontSize = 14.sp
-                        )
+                // ── Continue Watching ────────────────────────────────────
+                if (continueWatching.isNotEmpty()) {
+                    item {
+                        SectionHeader("Continuar Viendo")
+                        ContinueWatchingRow(items = continueWatching, navController = navController)
                     }
+                }
+
+                if (watchLater.isNotEmpty()) {
+                    item {
+                        SectionHeader("Mi lista")
+                        ContentRow(items = watchLater, navController = navController)
+                    }
+                }
+
+                item {
+                    SectionHeader("Recientemente Agregados")
+                    ContentRow(items = contentItems, navController = navController)
+                }
+
+                items(activeGenres) { genre ->
+                    SectionHeader(genre.name)
+                    val genreItems = contentItems.filter { item ->
+                        item.genres?.contains(genre.id) == true
+                    }
+                    ContentRow(items = genreItems, navController = navController)
+                }
+            }
+        }
+
+        // ── Loading Overlay (full-screen spinner while data loads) ──
+        if (isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(
+                        color = Color(0xFFE50914),
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Cargando...",
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 14.sp
+                    )
                 }
             }
         }
@@ -357,6 +328,87 @@ fun ContentPoster(item: ContentItem, onClick: () -> Unit) {
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 8.dp, start = 4.dp)
         )
+    }
+}
+
+// ─── Search Result Item ─────────────────────────────────────────────────────────
+
+@Composable
+fun SearchResultItem(
+    item: ContentItem,
+    genres: List<GenreItem>,
+    navController: NavController
+) {
+    val genreNames = remember(item, genres) {
+        item.genres?.mapNotNull { genreId ->
+            genres.find { it.id == genreId }?.name
+        }?.take(3) ?: emptyList()
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable {
+                navController.navigate("detail/${item.contentType}/${item.id}")
+            }
+            .background(Color(0xFF1E1E1E))
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Thumbnail
+        AsyncImage(
+            model = item.thumbnail ?: item.coverImage,
+            contentDescription = item.title,
+            modifier = Modifier
+                .width(80.dp)
+                .height(120.dp)
+                .clip(RoundedCornerShape(8.dp)),
+            contentScale = ContentScale.Crop
+        )
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = item.title,
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            if (genreNames.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    genreNames.forEach { name ->
+                        Text(
+                            text = name,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .background(
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                    RoundedCornerShape(4.dp)
+                                )
+                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = if (item.contentType == "serie") "SERIE" else "PELÍCULA",
+                color = Color.White.copy(alpha = 0.4f),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
     }
 }
 

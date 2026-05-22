@@ -99,3 +99,42 @@ data class DeleteResponse(
     val success: Boolean,
     val message: String? = null
 )
+
+// ─── Favorites ──────────────────────────────────────────────────────────────────
+
+data class FavoriteItem(
+    val id: String = "",
+    val profileId: String = "",
+    val contentId: String = "",
+    val contentType: String = "",
+    val createdAt: String? = null,
+    val content: ContentItem? = null
+)
+
+data class FavoritesResponse(
+    val success: Boolean,
+    val data: List<FavoriteItem>,
+    val count: Int? = null
+)
+
+data class FavoriteCheckResponse(
+    val success: Boolean,
+    val data: FavoriteCheckData
+)
+
+data class FavoriteCheckData(
+    val isFavorite: Boolean,
+    val favorite: FavoriteItem? = null
+)
+
+data class AddFavoriteRequest(
+    val profileId: String,
+    val contentId: String,
+    val contentType: String
+)
+
+data class FavoriteSingleResponse(
+    val success: Boolean,
+    val data: FavoriteItem? = null,
+    val message: String? = null
+)

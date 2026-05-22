@@ -176,10 +176,8 @@ fun RegisterScreen(navController: NavController) {
                         val result = authRepository.registerWithEmail(email.trim(), password)
                         result.fold(
                             onSuccess = {
-                                authRepository.sendEmailVerification()
-                                authRepository.logout()
                                 isLoading = false
-                                navController.navigate("verify_email") {
+                                navController.navigate("profile_selection") {
                                     popUpTo("register") { inclusive = true }
                                 }
                             },

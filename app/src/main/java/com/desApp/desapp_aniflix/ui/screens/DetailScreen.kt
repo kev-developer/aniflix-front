@@ -14,6 +14,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.ui.text.style.TextOverflow
@@ -54,6 +55,7 @@ fun DetailScreen(
     var selectedSeasonIndex by remember { mutableIntStateOf(0) }
 
     val genres by viewModel.genres.collectAsState()
+    val favorites by viewModel.favorites.collectAsState()
     val scope = rememberCoroutineScope()
 
     // Función helper para navegar al player con un episodio específico
@@ -333,18 +335,35 @@ fun DetailScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
+                    // ── Botón Favoritos (toggle con backend) ──────────────
+                    val isFav = remember(favorites, item.id) {
+                        favorites.any { it.contentId == item.id }
+                    }
                     OutlinedButton(
-                        onClick = { viewModel.addToWatchLater(item) },
+                        onClick = {
+                            viewModel.toggleFavorite(item) { /* estado actualizado via favorites StateFlow */ }
+                        },
                         modifier = Modifier.fillMaxWidth().height(56.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color.White
+                            contentColor = if (isFav) Color(0xFF7C4DFF) else Color.White
                         ),
-                        border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF1A1D29)),
+                        border = androidx.compose.foundation.BorderStroke(
+                            2.dp,
+                            if (isFav) Color(0xFF7C4DFF) else Color(0xFF1A1D29)
+                        ),
                         shape = RoundedCornerShape(16.dp)
                     ) {
-                        Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Icon(
+                            imageVector = Icons.Default.Favorite,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = if (isFav) Color(0xFF7C4DFF) else Color.White.copy(alpha = 0.6f)
+                        )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Añadir a mi lista", fontWeight = FontWeight.Bold)
+                        Text(
+                            if (isFav) "En mi lista" else "Añadir a mi lista",
+                            fontWeight = FontWeight.Bold
+                        )
                     }
 
                     // ── Descripción ──────────────────────────────────────

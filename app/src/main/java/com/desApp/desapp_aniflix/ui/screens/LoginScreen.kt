@@ -129,14 +129,8 @@ fun LoginScreen(navController: NavController) {
                         isLoading = false
                         result.fold(
                             onSuccess = {
-                                if (!authRepository.isEmailVerified()) {
-                                    navController.navigate("verify_email") {
-                                        popUpTo("login") { inclusive = true }
-                                    }
-                                } else {
-                                    navController.navigate("profile_selection") {
-                                        popUpTo("login") { inclusive = true }
-                                    }
+                                navController.navigate("profile_selection") {
+                                    popUpTo("login") { inclusive = true }
                                 }
                             },
                             onFailure = { exception ->
