@@ -1,3 +1,39 @@
+// =============================================================================
+// DetailScreen.kt — Pantalla de DETALLE de contenido (serie/película)
+// =============================================================================
+// ¿QUÉ ES ESTO?
+//   Muestra la información detallada de una serie o película:
+//   - Imagen de portada grande
+//   - Título, géneros, sinopsis
+//   - Botón de reproducción (con reanudar si hay progreso guardado)
+//   - Botón de favorito (corazón)
+//   - Lista de episodios (si es serie, con temporadas)
+//   - Continue Watching: reanuda desde donde se quedó
+//
+// ¿CÓMO SE CONECTA A FIREBASE?
+//   DetailScreen llama DIRECTAMENTE a ContentRetrofitClient para obtener
+//   los detalles del contenido (GET /api/content/series/{id} o GET /api/content/movies/{id}).
+//   El backend consulta Firestore y devuelve los datos completos.
+//
+//   También llama a HistoryRetrofitClient para obtener el progreso de continue
+//   watching (GET /api/history/continue-watching?profileId=X&contentId=Y).
+//   Y usa viewModel.toggleFavorite() para agregar/remover favoritos (vía backend).
+//
+// FLUJO DE CARGA:
+//   1. Usuario hace clic en un poster → navega a "detail/{contentType}/{contentId}"
+//   2. DetailScreen recibe contentType y contentId como parámetros
+//   3. LaunchedEffect(contentType, contentId) dispara la carga
+//   4. Si es "serie" → GET /api/content/series/{id}
+//      Si es "pelicula" → GET /api/content/movies/{id}
+//   5. También carga continue watching para saber si hay progreso guardado
+//   6. También carga favoritos (desde el ViewModel compartido) para mostrar corazón lleno/vacío
+//   7. User puede: reproducir, alternar favorito, navegar episodios
+//
+// ¿CÓMO NAVEGA AL REPRODUCTOR?
+//   navigateToPlayer() construye la URL con todos los parámetros:
+//   player/{type}/{id}?videoPath=...&title=...&initialProgress=...&seasonNumber=...&episodeNumber=...
+//   El VideoPlayerScreen recibe estos parámetros y reproduce el video.
+// =============================================================================
 package com.desApp.desapp_aniflix.ui.screens
 
 import android.net.Uri

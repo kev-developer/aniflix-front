@@ -1,3 +1,31 @@
+// =============================================================================
+// FavoritesScreen.kt — Pantalla "Mi lista" (Favoritos)
+// =============================================================================
+// ¿QUÉ ES ESTO?
+//   Muestra todos los favoritos del perfil actual en un grid de 3 columnas.
+//   Los datos vienen del CatalogViewModel.favorites (StateFlow), que a su vez
+//   se llena desde GET /api/favorites?profileId=xxx → Backend → Firestore.
+//
+// ¿CÓMO SE CONECTA A FIREBASE?
+//   FavoritesScreen NO hace llamadas directas. Usa el mismo CatalogViewModel
+//   que CatalogScreen. El ViewModel ya cargó los favoritos en su StateFlow.
+//   FavoritesScreen solo se SUSCRIBE con collectAsState().
+//
+//   El botón de "Favoritos" en el menú navega aquí, y al entrar ya deberían
+//   estar cargados porque CatalogScreen.loadFavorites() se ejecutó antes.
+//
+// FLUJO COMPLETO:
+//   1. Usuario marca contenido como favorito en DetailScreen
+//   2. viewModel.toggleFavorite() → POST /api/favorites → Backend → Firestore
+//   3. ViewModel actualiza _favorites StateFlow
+//   4. FavoritesScreen (y CatalogScreen) se RECOMPONEN automáticamente
+//   5. El nuevo favorito aparece en la cuadrícula
+//
+// ¿QUÉ MUESTRA?
+//   - Si no hay favoritos: icono de corazón vacío + mensaje "No tienes favoritos aún"
+//   - Si hay favoritos: grid con posters, título y badge (SERIE/PELÍCULA)
+//   - Al hacer clic en un item: navega a DetailScreen
+// =============================================================================
 package com.desApp.desapp_aniflix.ui.screens
 
 import androidx.compose.foundation.background

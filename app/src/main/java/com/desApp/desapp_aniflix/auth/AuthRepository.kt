@@ -1,3 +1,38 @@
+// =============================================================================
+// AuthRepository.kt — REPOSITORIO DE AUTENTICACIÓN (FIREBASE AUTH SDK)
+// =============================================================================
+// PROPÓSITO:
+//   Maneja el login, registro, verificación de email(YA NO USAMOS VERIFCACIÓN DE EMAIL EN ESTE PROYECTO) y cierre de sesión
+//   usando Firebase Authentication SDK DIRECTAMENTE desde Android.
+//
+//   ESTE es el ÚNICO punto donde la app Android se comunica DIRECTAMENTE
+//   con Firebase (sin pasar por el backend). Firebase Auth SDK corre
+//   en el cliente y gestiona la sesión del usuario.
+//
+// ¿CÓMO SE CONECTA CON FIREBASE?
+//   - Firebase Auth SDK (com.google.firebase:firebase-auth)
+//   - Configurado en firebase_options.json / google-services.json
+//   - Métodos: signInWithEmailAndPassword, createUserWithEmailAndPassword,
+//     sendEmailVerification(YA NO USAMOS VERIFCACIÓN DE EMAIL EN ESTE PROYECTO), signOut
+//
+//   NOTA: Solo la AUTENTICACIÓN es directa a Firebase. Las CONSULTAS de datos
+//   (contenido, favoritos, perfiles) van a través del backend Node.js.
+//
+// FLUJO DE LOGIN:
+//   1. LoginScreen llama a authRepository.loginWithEmail(email, password)
+//   2. Firebase Auth SDK verifica credenciales contra Firebase servers
+//   3. Si OK, devuelve un FirebaseUser con ID Token
+//   4. El ID Token se usará luego en los interceptors OkHttp
+//   5. Si OK, navega a ProfileSelectionScreen o CatalogScreen
+//
+// ¿DÓNDE SE USA?
+//   - LoginScreen → loginWithEmail()
+//   - RegisterScreen → registerWithEmail()
+//   - VerifyEmailScreen → sendEmailVerification(), isEmailVerified() (YA NO USAMOS VERIFCACIÓN DE EMAIL EN ESTE PROYECTO)
+//   - SettingsScreen (cerrar sesión) → logout()
+//   - MainActivity → isLoggedIn() para determinar ruta inicial
+// =============================================================================
+
 package com.desApp.desapp_aniflix.auth
 
 import com.google.firebase.auth.FirebaseAuth
@@ -10,15 +45,26 @@ import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.tasks.await
 
 /**
- * Repositorio de autenticación que maneja login, registro y cierre de sesión
- * usando Firebase Authentication.
+ * Repositorio de autenticación — capa que encapsula Firebase Auth SDK.
+ *
+ * Todas las funciones son "suspend" porque Firebase Auth usa Tasks
+ * (patrón de callbacks) que convertimos a corrutinas con .await().
  */
 class AuthRepository {
 
+    // Instancia de Firebase Auth (singleton)
     private val auth: FirebaseAuth = Firebase.auth
 
     /**
      * Inicia sesión con email y contraseña.
+     *
+     * Firebase Auth SDK:
+     *   auth.signInWithEmailAndPassword(email, password)
+     *     .addOnCompleteListener { ... }
+     *
+     * Convertido a corrutinas:
+     *   auth.signInWithEmailAndPassword(email, password).await()
+     *
      * @return FirebaseUser si es exitoso
      */
     suspend fun loginWithEmail(email: String, password: String): Result<FirebaseUser> {
@@ -41,6 +87,10 @@ class AuthRepository {
 
     /**
      * Registra un nuevo usuario con email y contraseña.
+     *
+     * Firebase Auth SDK:
+     *   auth.createUserWithEmailAndPassword(email, password).await()
+     *
      * @return FirebaseUser si es exitoso
      */
     suspend fun registerWithEmail(email: String, password: String): Result<FirebaseUser> {
@@ -61,9 +111,7 @@ class AuthRepository {
         }
     }
 
-    /**
-     * Envía un correo de verificación al usuario actual.
-     */
+    /** Envía correo de verificación al usuario actual (YA NO USAMOS VERIFCACIÓN DE EMAIL EN ESTE PROYECTO)*/
     suspend fun sendEmailVerification(): Result<Unit> {
         return try {
             val user = auth.currentUser ?: return Result.failure(Exception("No hay usuario autenticado"))
@@ -74,39 +122,28 @@ class AuthRepository {
         }
     }
 
-    /**
-     * Recarga los datos del usuario actual (para refrescar isEmailVerified).
-     */
+    /** Recarga datos del usuario (para refrescar isEmailVerified) (YA NO USAMOS VERIFCACIÓN DE EMAIL EN ESTE PROYECTO) */
     suspend fun reloadUser() {
         auth.currentUser?.reload()?.await()
     }
 
-    /**
-     * Verifica si el email del usuario actual está verificado.
-     * Recarga el usuario primero para obtener el estado más reciente.
-     */
+    /** Verifica si el email está verificado (recargando primero) (YA NO USAMOS VERIFCACIÓN DE EMAIL EN ESTE PROYECTO) */
     suspend fun isEmailVerified(): Boolean {
         reloadUser()
         return auth.currentUser?.isEmailVerified == true
     }
 
-    /**
-     * Cierra la sesión del usuario actual.
-     */
+    /** Cierra sesión (Firebase Auth SDK) */
     fun logout() {
-        auth.signOut()
+        auth.signOut()  // Invalida el ID Token actual
     }
 
-    /**
-     * Obtiene el usuario actualmente autenticado, o null si no hay sesión.
-     */
+    /** Obtiene el usuario actual o null */
     fun getCurrentUser(): FirebaseUser? {
         return auth.currentUser
     }
 
-    /**
-     * Verifica si hay un usuario autenticado.
-     */
+    /** Verifica si hay sesión activa */
     fun isLoggedIn(): Boolean {
         return auth.currentUser != null
     }

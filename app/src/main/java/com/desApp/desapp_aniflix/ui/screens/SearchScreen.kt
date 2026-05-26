@@ -1,3 +1,38 @@
+// =============================================================================
+// SearchScreen.kt — Pantalla de BÚSQUEDA
+// =============================================================================
+// ¿QUÉ ES ESTO?
+//   Pantalla donde el usuario puede:
+//   - Buscar contenido por título (barra de búsqueda con debounce)
+//   - Filtrar por género (chips de géneros)
+//   - Ver sugerencias basadas en sus favoritos
+//
+// ¿CÓMO FUNCIONA LA BÚSQUEDA?
+//   1. Usuario escribe en el TextField
+//   2. onValueChange → viewModel.onSearchQueryChanged(texto)
+//   3. CatalogViewModel.onSearchQueryChanged() aplica DEBOUNCE de 300ms
+//      (espera a que el usuario deje de escribir antes de hacer la llamada HTTP)
+//   4. Después de 300ms → performSearch() → GET /api/search?q=texto&limit=20
+//   5. Backend consulta Firestore (búsqueda en títulos) y devuelve resultados
+//   6. ViewModel actualiza searchResults StateFlow
+//   7. SearchScreen se recompone porque observa searchResults con collectAsState()
+//
+// ¿CÓMO FUNCIONAN LAS SUGERENCIAS?
+//   Si el usuario NO ha escrito nada y NO ha seleccionado un género:
+//   - El sistema analiza los FAVORITOS del usuario
+//   - Obtiene los géneros de esos favoritos
+//   - Busca contenido en "Recientemente Agregados" que COMPARTA esos géneros
+//   - Muestra hasta 5 sugerencias (shuffle + take(5))
+//   - Excluye contenido que ya está en favoritos
+//
+// FLUJO DE DATOS:
+//   SearchScreen → collectAsState() de searchQuery, searchResults, genreResults, etc.
+//   → ViewModel.onSearchQueryChanged() → debounce → performSearch()
+//   → ContentRetrofitClient (SIN auth, solo cloudFront) → GET /api/search
+//   → Backend → Firestore (búsqueda por título en colecciones series y movies)
+//   → Respuesta JSON → Retrofit deserializa → ViewModel actualiza StateFlow
+//   → collectAsState() detecta cambio → UI se recompone
+// =============================================================================
 package com.desApp.desapp_aniflix.ui.screens
 
 import androidx.compose.foundation.layout.*

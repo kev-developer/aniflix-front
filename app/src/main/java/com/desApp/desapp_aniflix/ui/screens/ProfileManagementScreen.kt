@@ -1,3 +1,37 @@
+// =============================================================================
+// ProfileManagementScreen.kt — Administración de Perfiles (CRUD Completo)
+// =============================================================================
+// PROPÓSITO:
+//   Esta pantalla permite al usuario ADMINISTRAR (Crear, Leer, Actualizar,
+//   Eliminar) sus perfiles de Aniflix. Se accede desde MenuScreen.
+//
+// CRUD COMPLETO:
+//   CREATE → POST   /api/profiles        (crear perfil)
+//   READ   → GET    /api/profiles?uid=   (listar perfiles)
+//   UPDATE → PUT    /api/profiles/{id}   (actualizar nombre)
+//   DELETE → DELETE /api/profiles/{id}   (eliminar perfil + datos asociados)
+//
+// CONEXIÓN A FIREBASE:
+//   A través de ProfileViewModel → ProfileRetrofitClient → Backend → Firestore
+//
+//   authInterceptor agrega el Firebase ID Token (JWT) en cada petición.
+//   El backend usa verifyToken middleware para validar el JWT antes de
+//   procesar cualquier operación CRUD.
+//
+//   Colección en Firestore: profiles/
+//     Documento: { id: string, name: string, avatar: string, uid: string }
+//
+// DIFERENCIA CON ProfileSelectionScreen:
+//   ProfileSelectionScreen: Elige un perfil para usar la app
+//   ProfileManagementScreen: Administra (crea/edita/elimina) perfiles
+//
+// COMPONENTES:
+//   - ProfileManagementScreen (principal): Lista + botón "Agregar"
+//   - CreateProfileDialog: Diálogo para crear perfil
+//   - EditProfileDialog: Diálogo para editar nombre
+//   - Delete Confirmation Dialog: Confirmación de eliminación
+// =============================================================================
+
 package com.desApp.desapp_aniflix.ui.screens
 
 import androidx.compose.foundation.background
@@ -24,26 +58,38 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.desApp.desapp_aniflix.ui.ProfileViewModel
 
+// ── PANTALLA PRINCIPAL: Administración de Perfiles ────────────────────
+// Recibe profileViewModel desde fuera (pasado por MenuScreen).
+// Esto es porque MenuScreen ya tiene la instancia del ViewModel.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileManagementScreen(
     navController: NavController,
     profileViewModel: ProfileViewModel
 ) {
+    // ── ESTADOS SUSCRITOS AL VIEWMODEL ─────────────────────────────────
     val profiles by profileViewModel.profiles.collectAsState()
     val isLoading by profileViewModel.isLoading.collectAsState()
     val error by profileViewModel.error.collectAsState()
 
+    // ── ESTADOS LOCALES ─────────────────────────────────────────────────
     var showCreateDialog by remember { mutableStateOf(false) }
-    var editingProfile by remember { mutableStateOf<Pair<String, String>?>(null) } // id, currentName
+    // editingProfile = Pair(profileId, currentName) o null si no se está editando
+    var editingProfile by remember { mutableStateOf<Pair<String, String>?>(null) }
     var deletingProfileId by remember { mutableStateOf<String?>(null) }
 
+    // ── CARGA INICIAL ──────────────────────────────────────────────────
+    // Al entrar a la pantalla, cargar la lista de perfiles
     LaunchedEffect(Unit) {
         profileViewModel.loadProfiles()
     }
 
+    // ── SCAFFOLD (Estructura de la pantalla) ───────────────────────────
+    // Scaffold proporciona la estructura base con TopAppBar y contenido.
     Scaffold(
         topBar = {
+            // ── BARRA SUPERIOR ──
+            // CenterAlignedTopAppBar con título y botón "Volver"
             CenterAlignedTopAppBar(
                 title = {
                     Text(
@@ -53,6 +99,7 @@ fun ProfileManagementScreen(
                     )
                 },
                 navigationIcon = {
+                    // Botón de flecha ← para volver atrás
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
@@ -62,12 +109,14 @@ fun ProfileManagementScreen(
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.Transparent
+                    containerColor = Color.Transparent  // Fondo transparente (hereda el de Scaffold)
                 )
             )
         },
-        containerColor = Color(0xFF0F111A)
+        containerColor = Color(0xFF0F111A)  // Fondo oscuro
     ) { paddingValues ->
+        // ── LISTA DE PERFILES ──
+        // LazyColumn = lista desplazable (solo renderiza items visibles)
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -79,11 +128,12 @@ fun ProfileManagementScreen(
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            // ── Error message ──
+            // ── MENSAJE DE ERROR ──
+            // Solo se muestra si error NO es null
             if (error != null) {
                 item {
                     Surface(
-                        color = Color(0xFFFF4081).copy(alpha = 0.15f),
+                        color = Color(0xFFFF4081).copy(alpha = 0.15f),  // Rosado semitransparente
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -98,7 +148,8 @@ fun ProfileManagementScreen(
                 }
             }
 
-            // ── Loading indicator ──
+            // ── INDICADOR DE CARGA ──
+            // Solo se muestra si isLoading y NO hay perfiles (carga inicial)
             if (isLoading && profiles.isEmpty()) {
                 item {
                     Box(
@@ -115,8 +166,15 @@ fun ProfileManagementScreen(
                 }
             }
 
-            // ── Profile list ──
+            // ── LISTA DE PERFILES ──
+            // items(profiles) itera sobre la lista y crea un item por cada perfil.
+            // Cada perfil muestra:
+            //   - Avatar (inicial del nombre)
+            //   - Nombre
+            //   - Botón EDITAR (lápiz)
+            //   - Botón ELIMINAR (basurero)
             items(profiles) { profile ->
+                // Surface = tarjeta con fondo y esquinas redondeadas
                 Surface(
                     color = Color(0xFF1A1D29),
                     shape = RoundedCornerShape(16.dp),
@@ -128,7 +186,7 @@ fun ProfileManagementScreen(
                             .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Avatar
+                        // ── Avatar (inicial) ──
                         Surface(
                             color = Color(0xFF7C4DFF).copy(alpha = 0.2f),
                             shape = RoundedCornerShape(12.dp),
@@ -136,7 +194,7 @@ fun ProfileManagementScreen(
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Text(
-                                    profile.name.take(1).uppercase(),
+                                    profile.name.take(1).uppercase(),  // Primera letra en mayúscula
                                     color = Color(0xFF7C4DFF),
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 22.sp
@@ -146,7 +204,8 @@ fun ProfileManagementScreen(
 
                         Spacer(modifier = Modifier.width(14.dp))
 
-                        // Name
+                        // ── Nombre del perfil ──
+                        // weight(1f) = ocupa todo el espacio disponible
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 profile.name,
@@ -156,7 +215,9 @@ fun ProfileManagementScreen(
                             )
                         }
 
-                        // Edit button
+                        // ── Botón EDITAR ──
+                        // Al hacer clic, guarda el id y nombre actual en editingProfile.
+                        // Esto activa EditProfileDialog.
                         IconButton(
                             onClick = {
                                 editingProfile = Pair(profile.id, profile.name)
@@ -170,7 +231,9 @@ fun ProfileManagementScreen(
                             )
                         }
 
-                        // Delete button
+                        // ── Botón ELIMINAR ──
+                        // Al hacer clic, guarda el id en deletingProfileId.
+                        // Esto activa el diálogo de confirmación de eliminación.
                         IconButton(
                             onClick = {
                                 deletingProfileId = profile.id
@@ -179,7 +242,7 @@ fun ProfileManagementScreen(
                             Icon(
                                 Icons.Default.Delete,
                                 contentDescription = "Eliminar",
-                                tint = Color(0xFFFF4081),
+                                tint = Color(0xFFFF4081),  // Rosado (peligro/eliminar)
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -187,7 +250,7 @@ fun ProfileManagementScreen(
                 }
             }
 
-            // ── Add profile button ──
+            // ── BOTÓN "AGREGAR PERFIL" ──
             item {
                 Spacer(modifier = Modifier.height(12.dp))
                 OutlinedButton(
@@ -212,11 +275,14 @@ fun ProfileManagementScreen(
         }
     }
 
-    // ── Create Profile Dialog ──
+    // ── DIÁLOGOS ──────────────────────────────────────────────────────
+
+    // 1. CREAR PERFIL
     if (showCreateDialog) {
         CreateProfileDialog(
             onDismiss = { showCreateDialog = false },
             onConfirm = { name ->
+                // createProfile() → POST /api/profiles → Backend → Firestore
                 profileViewModel.createProfile(name = name) {
                     showCreateDialog = false
                 }
@@ -225,13 +291,14 @@ fun ProfileManagementScreen(
         )
     }
 
-    // ── Edit Profile Dialog ──
+    // 2. EDITAR PERFIL
     if (editingProfile != null) {
         EditProfileDialog(
             currentName = editingProfile!!.second,
             isLoading = isLoading,
             onDismiss = { editingProfile = null },
             onConfirm = { newName ->
+                // updateProfile() → PUT /api/profiles/{id} → Backend → Firestore
                 profileViewModel.updateProfile(
                     profileId = editingProfile!!.first,
                     newName = newName
@@ -242,7 +309,7 @@ fun ProfileManagementScreen(
         )
     }
 
-    // ── Delete Confirmation Dialog ──
+    // 3. CONFIRMAR ELIMINACIÓN
     if (deletingProfileId != null) {
         AlertDialog(
             onDismissRequest = { deletingProfileId = null },
@@ -264,12 +331,13 @@ fun ProfileManagementScreen(
             confirmButton = {
                 Button(
                     onClick = {
+                        // deleteProfile() → DELETE /api/profiles/{id} → Backend → Firestore
                         profileViewModel.deleteProfile(deletingProfileId!!) {
                             deletingProfileId = null
                         }
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFF4081)
+                        containerColor = Color(0xFFFF4081)  // Botón rojo para acciones destructivas
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -285,6 +353,8 @@ fun ProfileManagementScreen(
     }
 }
 
+// ── COMPONENTE: Diálogo para Crear Perfil ─────────────────────────────
+// AlertDialog con un TextField para ingresar el nombre del nuevo perfil.
 @Composable
 private fun CreateProfileDialog(
     onDismiss: () -> Unit,
@@ -360,6 +430,11 @@ private fun CreateProfileDialog(
     )
 }
 
+// ── COMPONENTE: Diálogo para Editar Perfil ────────────────────────────
+// Similar al de crear, pero:
+//   - El TextField se preinicializa con currentName
+//   - El botón "GUARDAR" está deshabilitado si el nombre no cambió
+//   - Usa onConfirm en lugar de onConfirm (mismo patrón)
 @Composable
 private fun EditProfileDialog(
     currentName: String,
@@ -367,7 +442,7 @@ private fun EditProfileDialog(
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit
 ) {
-    var profileName by remember { mutableStateOf(currentName) }
+    var profileName by remember { mutableStateOf(currentName) }  // Preinicializado
 
     AlertDialog(
         onDismissRequest = { if (!isLoading) onDismiss() },
@@ -410,6 +485,7 @@ private fun EditProfileDialog(
         confirmButton = {
             Button(
                 onClick = { onConfirm(profileName.trim()) },
+                // Deshabilitado si: vacío, igual al original, o cargando
                 enabled = profileName.isNotBlank() && profileName != currentName && !isLoading,
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C4DFF)),
                 shape = RoundedCornerShape(12.dp)

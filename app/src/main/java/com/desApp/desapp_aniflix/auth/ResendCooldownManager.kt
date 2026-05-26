@@ -1,3 +1,20 @@
+// =============================================================================
+// ⚠️  NOTA IMPORTANTE — ARCHIVO NO UTILIZADO ACTUALMENTE
+// =============================================================================
+// Este archivo (ResendCooldownManager) gestionaba el cooldown o tiempo de espera
+// entre reenvíos de correos de verificación de email.
+//
+// Sin embargo, en la versión ACTUAL de la app, la verificación de correo
+// (VerifyEmailScreen) y el reenvío de verificación ya NO SE USAN.
+// Por lo tanto, este archivo y VerificationApiService.kt son código MUERTO
+// que no se ejecuta en ningún flujo de la aplicación.
+//
+// Se mantiene el archivo por si en el futuro se decide reactivar la verificación,
+// pero mientras tanto no afecta en nada al funcionamiento de la app.
+//
+// Si el profesor lo pregunta: "esto era para controlar que no se pueda reenviar
+// el correo de verificación muchas veces seguidas, pero decidimos quitarlo".
+// =============================================================================
 package com.desApp.desapp_aniflix.auth
 
 import android.util.Log
@@ -10,16 +27,18 @@ import java.net.UnknownHostException
 /**
  * Gestiona el cooldown persistente para el reenvío de correos de verificación.
  *
- * AHORA usa el backend como fuente de verdad (Firestore) en lugar de SharedPreferences.
- * Esto sincroniza el cooldown entre todas las plataformas (Android, Web) y previene
- * que se pueda bypassear reinstalando la app o borrando datos locales.
+ * ⚠️ ACTUALMENTE NO SE USA — la verificación de email fue desactivada.
+ *
+ * Cuando estaba activo, usaba el backend como fuente de verdad (Firestore)
+ * en lugar de SharedPreferences, para sincronizar el cooldown entre todas
+ * las plataformas (Android, Web) y prevenir bypass reinstalando la app.
  *
  * Reglas de cooldown (aplicadas server-side):
  * - Cada reenvío exitoso: espera 5 minutos (STANDARD_COOLDOWN_SECONDS)
  * - Si el usuario ha hecho 10+ solicitudes: espera 24 horas (MAX_COOLDOWN_SECONDS)
  */
 object ResendCooldownManager {
-    // Caché local del estado de cooldown (para UI reactiva)
+    // ── Estado local (caché para UI reactiva) ────────────────────────────────
     private var _remainingCooldownSeconds: Long = 0
     private var _lastError: String = ""
 
@@ -30,6 +49,11 @@ object ResendCooldownManager {
     /**
      * Obtiene el estado del cooldown desde el backend (Firestore).
      * Esta función es suspend y debe llamarse desde una corrutina.
+     *
+     * ⚠️ NOTA: Ya no se llama en ningún flujo activo de la app.
+     *
+     * Flujo de datos:
+     *   Android → GET /api/auth/cooldown → Backend (Node.js) → Firestore
      *
      * @return true si la petición fue exitosa, false si hubo error
      */
@@ -74,6 +98,11 @@ object ResendCooldownManager {
      * Solicita un reenvío de verificación al backend.
      * El backend verifica el cooldown en Firestore y si está permitido,
      * registra el timestamp. Si no, responde con error 429.
+     *
+     * ⚠️ NOTA: Ya no se llama en ningún flujo activo de la app.
+     *
+     * Flujo de datos:
+     *   Android → POST /api/auth/resend → Backend (Node.js) → Firestore
      *
      * @return Result.success si el cooldown está OK y se registró el reenvío,
      *         Result.failure con el mensaje de error si no está permitido.

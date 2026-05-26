@@ -1,3 +1,46 @@
+// =============================================================================
+// MainActivity.kt — PUNTO DE ENTRADA de la aplicación Aniflix
+// =============================================================================
+// ¿QUÉ ES ESTO?
+//   Es el archivo principal de la app Android. Define:
+//   1. La Activity principal (MainActivity) — el punto de entrada del sistema
+//   2. El tema/colores de la aplicación (dark theme personalizado)
+//   3. La navegación completa (NavHost con todas las rutas)
+//   4. La creación de los ViewModels (CatalogViewModel, ProfileViewModel)
+//   5. La autenticación (Firebase Auth StateListener)
+//   6. La barra de navegación inferior (Bottom Navigation)
+//
+// ARQUITECTURA DE NAVEGACIÓN:
+//   ┌─────────────┐     ┌──────────────────┐     ┌──────────────┐
+//   │   Login     │ ──> │  Register        │ ──> │  VerifyEmail │ (DESACTIVADO)
+//   └─────────────┘     └──────────────────┘     └──────────────┘
+//         │
+//         v
+//   ┌──────────────────────┐
+//   │  ProfileSelection    │
+//   └──────────────────────┘
+//         │
+//         v
+//   ┌─────────────────────────────────────────────────┐
+//   │  Bottom Navigation:                             │
+//   │  ┌────────┐  ┌────────┐  ┌────────┐             │
+//   │  │ Inicio │  │Busqueda│  │  Menú  │             │
+//   │  └────────┘  └────────┘  └────────┘             │
+//   │  CatalogScreen  SearchScreen  MenuScreen        │
+//   └─────────────────────────────────────────────────┘
+//         │
+//         ├──> DetailScreen ──> VideoPlayerScreen
+//         ├──> FavoritesScreen
+//         ├──> ProfileManagementScreen
+//         └──> SettingsScreen
+//
+// FLUJO DE AUTENTICACIÓN:
+//   1. App inicia → FirebaseAuth verifica si hay sesión activa
+//   2. No hay usuario → startDestination = "login"
+//   3. Hay usuario pero sin perfil → startDestination = "profile_selection"
+//   4. Hay usuario con perfil → startDestination = "catalog"
+//   5. AuthStateListener escucha cambios en tiempo real (login/logout)
+// =============================================================================
 package com.desApp.desapp_aniflix
 
 import android.os.Bundle
@@ -31,8 +74,14 @@ import com.desApp.desapp_aniflix.ui.ProfileViewModel
 import com.desApp.desapp_aniflix.ui.screens.*
 import com.google.firebase.auth.FirebaseAuth
 
-// ─── Bottom Nav Item Definition ──────────────────────────────────────────────
-
+// ═══════════════════════════════════════════════════════════════════════════════
+//  BOTTOM NAVIGATION DEFINITION
+// ═══════════════════════════════════════════════════════════════════════════════
+// Define los 3 tabs principales de la app que aparecen en la barra inferior.
+// Cada tab tiene: label (texto), icon (vector icon), route (ruta de navegación).
+//
+// saveState=true y restoreState=true permiten que al cambiar de tab se guarde
+// el estado del tab anterior y al volver se restaure (no se pierde el scroll).
 private data class BottomNavItem(
     val label: String,
     val icon: ImageVector,
@@ -45,13 +94,25 @@ private val bottomNavItems = listOf(
     BottomNavItem("Menú", Icons.Default.Menu, "menu")
 )
 
+// ═══════════════════════════════════════════════════════════════════════════════
+//  MAIN ACTIVITY — Punto de entrada del sistema Android
+// ═══════════════════════════════════════════════════════════════════════════════
+// ComponentActivity es la clase base de Android para actividades que usan Jetpack
+// Compose. El método onCreate() es el ciclo de vida principal de Android.
+//
+// Aquí configuramos:
+// 1. El esquema de colores (tema oscuro personalizado)
+// 2. El tema Material3
+// 3. El contenido Compose (AniflixApp)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            val primaryColor = Color(0xFF7C4DFF) // Vibrant Violet
-            val backgroundColor = Color(0xFF0F111A) // Deep Space Navy
-            val surfaceColor = Color(0xFF1A1D29) // Dark Surface
+            // ── Paleta de colores personalizada ──────────────────────────
+            // Estos colores definen la identidad visual de Aniflix
+            val primaryColor = Color(0xFF7C4DFF)         // Violeta vibrante (color principal)
+            val backgroundColor = Color(0xFF0F111A)       // Azul marino profundo (fondo)
+            val surfaceColor = Color(0xFF1A1D29)          // Superficie oscura (tarjetas)
 
             val modernDarkColorScheme = darkColorScheme(
                 primary = primaryColor,
@@ -60,21 +121,41 @@ class MainActivity : ComponentActivity() {
                 onBackground = Color.White,
                 surface = surfaceColor,
                 onSurface = Color.White,
-                error = Color(0xFFFF4081)
+                error = Color(0xFFFF4081)                 // Rosa para errores
             )
 
+            // Aplicar el tema Material3 a toda la app
             MaterialTheme(colorScheme = modernDarkColorScheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    AniflixApp()
+                    AniflixApp() // ← Aquí empieza la app real
                 }
             }
         }
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+//  ANIFLIX APP — Componente principal de la aplicación
+// ═══════════════════════════════════════════════════════════════════════════════
+// Este @Composable contiene:
+// - NavController (gestión de navegación entre pantallas)
+// - ViewModels (CatalogViewModel y ProfileViewModel — nivel de actividad)
+// - AuthRepository (comunicación directa con Firebase Auth)
+// - AuthStateListener (escucha cambios de login/logout)
+// - Bottom Navigation Bar (3 tabs principales)
+// - NavHost (define TODAS las rutas de la aplicación)
+//
+// IMPORTANTE SOBRE VIEWMODELS:
+//   `viewModel()` sin parámetros crea el ViewModel a nivel de la Activity.
+//   Esto significa que CatalogViewModel y ProfileViewModel SOBREVIVEN a la
+//   navegación entre pantallas y a cambios de configuración (rotación).
+//
+//   Como ambos ViewModels se crean aquí, CatalogScreen, SearchScreen,
+//   DetailScreen, FavoritesScreen y MenuScreen reciben el mismo ViewModel
+//   y comparten el mismo estado.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AniflixApp() {
@@ -83,10 +164,18 @@ private fun AniflixApp() {
     val profileViewModel: ProfileViewModel = viewModel()
     val authRepository = remember { AuthRepository() }
 
-    // Estado de autenticación
+    // ── Estado de autenticación ─────────────────────────────────────────────
+    // Se inicializa con el estado actual de Firebase Auth
     var isLoggedIn by remember { mutableStateOf(authRepository.isLoggedIn()) }
 
-    // Escuchar cambios en el estado de autenticación
+    // ── Escuchar cambios de autenticación en TIEMPO REAL ─────────────────────
+    // FirebaseAuth.AuthStateListener se dispara cuando:
+    //   - El usuario inicia sesión (login)
+    //   - El usuario cierra sesión (logout)
+    //   - El token de Firebase se refresca
+    //
+    // DisposableEffect asegura que el listener se limpie cuando el composable
+    // se destruye (onDispose), evitando memory leaks.
     DisposableEffect(Unit) {
         val authStateListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
             isLoggedIn = firebaseAuth.currentUser != null
@@ -97,7 +186,11 @@ private fun AniflixApp() {
         }
     }
 
-    // Determinar la pantalla inicial según estado de auth y perfil
+    // ── Determinar ruta inicial ─────────────────────────────────────────────
+    // La lógica es:
+    //   1. No hay usuario logueado → "login"
+    //   2. Hay usuario pero sin perfil seleccionado → "profile_selection"
+    //   3. Hay usuario y hay perfil → "catalog" (pantalla principal)
     val currentUser = FirebaseAuth.getInstance().currentUser
     val startDestination = remember {
         when {
@@ -107,13 +200,18 @@ private fun AniflixApp() {
         }
     }
 
-    // Obtener la ruta actual para controlar la bottom bar
+    // ── Estado de la navegación ─────────────────────────────────────────────
+    // currentBackStackEntryAsState() nos da la ruta ACTUAL para saber
+    // qué tab de la bottom bar está seleccionado
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    // Mostrar bottom bar solo en las rutas principales
+    // Solo mostramos la bottom bar en las 3 rutas principales
     val isBottomNavRoute = currentRoute in listOf("catalog", "search", "menu")
 
+    // ═════════════════════════════════════════════════════════════════════════
+    //  SCAFFOLD + BOTTOM NAVIGATION
+    // ═════════════════════════════════════════════════════════════════════════
     Scaffold(
         bottomBar = {
             if (isBottomNavRoute) {
@@ -126,12 +224,19 @@ private fun AniflixApp() {
                         NavigationBarItem(
                             selected = selected,
                             onClick = {
+                                // Navegación entre tabs con guardado de estado
                                 if (currentRoute != item.route) {
                                     navController.navigate(item.route) {
+                                        // popUpTo con saveState=true: vuelve a la raíz
+                                        // guardando el estado de la pila anterior
                                         popUpTo(navController.graph.findStartDestination().id) {
                                             saveState = true
                                         }
+                                        // launchSingleTop: evita crear múltiples instancias
+                                        // del mismo destino en la pila
                                         launchSingleTop = true
+                                        // restoreState: restaura el estado guardado
+                                        // (scroll, etc.) al volver a un tab
                                         restoreState = true
                                     }
                                 }
@@ -162,46 +267,82 @@ private fun AniflixApp() {
             }
         }
     ) { innerPadding ->
+        // ═══════════════════════════════════════════════════════════════════
+        //  NAV HOST — Todas las rutas de la aplicación
+        // ═══════════════════════════════════════════════════════════════════
+        // NavHost es el contenedor que gestiona qué pantalla se muestra.
+        // Cada "composable()" define una ruta y el @Composable que se muestra.
+        //
+        // Las rutas con parámetros usan {parametros} en la URL.
+        // Ej: "detail/{contentType}/{contentId}" → /detail/serie/abc123
         NavHost(
             navController = navController,
             startDestination = startDestination,
             modifier = Modifier.padding(innerPadding)
         ) {
-            // ── Auth routes ──────────────────────────────────────────────
+            // ── AUTH ROUTES ──────────────────────────────────────────────
+            // Estas rutas NO tienen bottom bar (isBottomNavRoute = false)
+
             composable("login") {
+                // Pantalla de inicio de sesión
+                // Usa AuthRepository.loginWithEmail() que llama DIRECTAMENTE
+                // a Firebase Auth SDK (NO al backend)
                 LoginScreen(navController)
             }
             composable("register") {
+                // Pantalla de registro
+                // Usa AuthRepository.registerWithEmail() → Firebase Auth SDK
                 RegisterScreen(navController)
             }
             composable("verify_email") {
+                // ⚠️ ACTUALMENTE DESACTIVADO — verificación de email no se usa
                 VerifyEmailScreen(navController)
             }
             composable("profile_selection") {
+                // Selección de perfil (después del login)
+                // Muestra los perfiles del usuario cargados desde el backend
+                // GET /api/profiles → Backend → Firestore
                 ProfileSelectionScreen(
                     navController = navController,
                     profileViewModel = profileViewModel
                 )
             }
 
-            // ── Bottom Nav routes ────────────────────────────────────────
+            // ── BOTTOM NAV ROUTES (con barra inferior) ────────────────────
+
             composable("catalog") {
+                // PANTALLA PRINCIPAL: Catálogo/Inicio
+                // Muestra: Hero Banner, Continue Watching, Mi lista,
+                // Recientemente Agregados, filas por género
+                // Recibe catalogViewModel (creado arriba, comparte estado)
                 CatalogScreen(navController, catalogViewModel)
             }
             composable("search") {
+                // Pantalla de búsqueda
+                // Barra de búsqueda con debounce, chips de género, sugerencias
+                // También recibe catalogViewModel (comparte searchResults)
                 SearchScreen(navController, catalogViewModel)
             }
             composable("menu") {
+                // Pantalla de menú lateral
+                // Muestra: perfil actual, enlaces a configuración, favoritos,
+                // gestión de perfiles, cerrar sesión
                 MenuScreen(navController, profileViewModel)
             }
 
-            // ── Detail & Player ──────────────────────────────────────────
+            // ── DETAIL & PLAYER ──────────────────────────────────────────
+
             composable("detail/{contentType}/{contentId}") { backStackEntry ->
+                // Pantalla de detalle de contenido (serie o película)
+                // Parámetros: contentType (serie/pelicula), contentId (ID del contenido)
+                // Muestra: información, episodios, botón de favorito, reproducción
                 val contentType = backStackEntry.arguments?.getString("contentType")
                 val contentId = backStackEntry.arguments?.getString("contentId")
                 DetailScreen(contentType, contentId, catalogViewModel, navController)
             }
             composable(
+                // Pantalla de reproducción de video
+                // Ruta con múltiples parámetros opcionales (query parameters)
                 "player/{contentType}/{contentId}?videoPath={videoPath}&title={title}&initialProgress={initialProgress}&seasonNumber={seasonNumber}&episodeNumber={episodeNumber}&episodeTitle={episodeTitle}",
                 arguments = listOf(
                     navArgument("videoPath") { type = NavType.StringType; defaultValue = "" },
@@ -230,18 +371,21 @@ private fun AniflixApp() {
                 )
             }
 
-            // ── Profile Management ───────────────────────────────────────
+            // ── PROFILE MANAGEMENT ───────────────────────────────────────
             composable("profile_management") {
+                // CRUD de perfiles: crear, editar, eliminar perfiles
                 ProfileManagementScreen(navController, profileViewModel)
             }
 
-            // ── Favorites ────────────────────────────────────────────────
+            // ── FAVORITES ────────────────────────────────────────────────
             composable("favorites") {
+                // Pantalla "Mi lista" (todos los favoritos en grid)
                 FavoritesScreen(navController, catalogViewModel)
             }
 
-            // ── Settings ─────────────────────────────────────────────────
+            // ── SETTINGS ─────────────────────────────────────────────────
             composable("settings") {
+                // Configuración de la app
                 SettingsScreen(navController)
             }
         }

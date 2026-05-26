@@ -1,3 +1,51 @@
+// =============================================================================
+// CatalogScreen.kt — Pantalla PRINCIPAL (Inicio / Catálogo)
+// =============================================================================
+// ¿QUÉ ES ESTO?
+//   Es la pantalla principal de Aniflix, similar a Netflix. Muestra:
+//   - Hero Banner (poster aleatorio con botón "VER AHORA")
+//   - "Continuar Viendo" (filas con barra de progreso)
+//   - "Mi lista" (contenido favorito del perfil actual)
+//   - "Recientemente Agregados" (últimos 50 contenidos)
+//   - Filas por género (acción, romance, etc.)
+//
+// ¿CÓMO OBTIENE LOS DATOS?
+//   CatalogScreen recibe un CatalogViewModel (creado en MainActivity).
+//   Se SUSCRIBE a los StateFlow del ViewModel usando collectAsState().
+//   Cuando los datos cambian (porque el ViewModel los actualizó), Compose
+//   RECOMPONE automáticamente la UI.
+//
+//   collectAsState() es la MAGIA de Compose que hace que la UI sea reactiva.
+//   Sin esto, la pantalla no se actualizaría cuando lleguen los datos del backend.
+//
+// FLUJO DE CARGA (Android → Backend → Firebase):
+//   1. MainActivity.AniflixApp() crea CatalogViewModel con viewModel()
+//   2. CatalogViewModel.init { refresh() } — carga datos iniciales
+//   3. Pero en ese momento ProfileManager.currentProfileId puede ser null
+//   4. CatalogScreen se compone y LaunchedEffect(Unit) llama a:
+//      - viewModel.loadContinueWatchingData()
+//      - viewModel.loadFavorites()
+//   5. ViewModel lanza corrutinas → Retrofit → Backend → Firestore
+//   6. StateFlow se actualiza → collectAsState() detecta cambios → UI se recompone
+//
+// ¿QUÉ ES LaunchedEffect?
+//   Es un efecto secundario de Compose que se ejecuta UNA SOLA VEZ cuando
+//   el Composable se muestra por primera vez (LaunchedEffect(Unit)).
+//   Dentro de él podemos llamar funciones suspend.
+//
+// ¿QUÉ ES collectAsState()?
+//   Convierte un StateFlow de Kotlin en un State de Compose.
+//   Cada vez que el StateFlow emite un nuevo valor, el Composable
+//   que lo usa se RECOMPONE automáticamente.
+//   Ej: val contentItems by viewModel.contentItems.collectAsState()
+//
+// ¿QUÉ ES remember()?
+//   Guarda un valor en memoria durante la recomposición.
+//   remember(clave) { ... } recalcula el valor SOLO cuando la clave cambia.
+//   Ej: remember(favorites) { favorites.mapNotNull { it.content } }
+//   → watchLater se recalcula solo cuando favorites cambia.
+//   Esto SOLUCIONÓ el bug de "Mi lista" que no aparecía al cargar.
+// =============================================================================
 package com.desApp.desapp_aniflix.ui.screens
 
 import android.net.Uri
@@ -35,41 +83,75 @@ import com.desApp.desapp_aniflix.model.GenreItem
 import com.desApp.desapp_aniflix.ui.CatalogViewModel
 import kotlin.random.Random
 
+/**
+ * Pantalla principal de Aniflix (Inicio/Catálogo).
+ *
+ * @param navController Controlador de navegación (para ir a detalle/reproductor)
+ * @param viewModel CatalogViewModel compartido (creado en MainActivity)
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CatalogScreen(navController: NavController, viewModel: CatalogViewModel) {
+    // ── SUSCRIPCIÓN A LOS STATEFLOW DEL VIEWMODEL ──────────────────────────
+    // collectAsState() convierte cada StateFlow en un State de Compose.
+    // Cuando el StateFlow cambia, el Composable se RECOMPONE automáticamente.
+    //
+    // El "by" es un delegado de Kotlin que simplifica: contentItems es un State
+    // pero lo usamos directamente como si fuera el valor (List<ContentItem>).
     val contentItems by viewModel.contentItems.collectAsState()
     val genres by viewModel.genres.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val continueWatching by viewModel.continueWatching.collectAsState()
     val favorites by viewModel.favorites.collectAsState()
+
+    // ── "Mi lista" (Watch Later) ───────────────────────────────────────────
+    // ANTES: val watchLater = viewModel.watchLater (NO funcionaba)
+    // AHORA: remember(favorites) recalcula cuando favorites cambia
+    //
+    // ¿Por qué esto es importante?
+    //   viewModel.watchLater es una propiedad get() que deriva de _favorites.
+    //   Pero NO es un StateFlow, así que Compose no sabe que debe recomponerse
+    //   cuando _favorites cambia. Al usar remember(favorites), le decimos a
+    //   Compose: "oye, este valor depende de favorites, si favorites cambia
+    //   recalcula watchLater y si es diferente, recompón la UI".
     val watchLater = remember(favorites) {
         favorites.mapNotNull { it.content }
     }
 
-    // Cargar Continue Watching y Favoritos cuando la pantalla se compone
-    // (útil si el ViewModel se creó antes de que el perfil estuviera seleccionado)
+    // ── CARGA DIFERIDA (LaunchedEffect) ────────────────────────────────────
+    // CatalogViewModel se crea en MainActivity, antes de que el perfil esté
+    // seleccionado. En ese momento, ProfileManager.currentProfileId es null.
+    // loadFavorites() y loadContinueWatching() dentro de refresh() no hacen nada.
+    //
+    // Pero cuando el usuario llega a CatalogScreen (después de seleccionar perfil),
+    // ProfileManager.currentProfileId YA tiene valor.
+    // Por eso llamamos loadFavorites() y loadContinueWatchingData() aquí.
+    //
+    // LaunchedEffect(Unit) se ejecuta UNA SOLA VEZ cuando este Composable
+    // entra en la composición (cuando la pantalla se muestra por primera vez).
     LaunchedEffect(Unit) {
         viewModel.loadContinueWatchingData()
         viewModel.loadFavorites()
     }
 
-    // Seleccionar un item aleatorio para el Hero Banner
+    // ── HERO BANNER ────────────────────────────────────────────────────────
+    // Selecciona un item aleatorio para mostrar como hero card (Netflix-style)
     val heroItem = remember(contentItems) {
         if (contentItems.isNotEmpty()) {
             contentItems[Random.nextInt(contentItems.size)]
         } else null
     }
 
-    // Obtener hasta 3 nombres de género para el Hero
+    // Obtener hasta 3 nombres de género para mostrar en el Hero
     val heroGenreNames = remember(heroItem, genres) {
         heroItem?.genres?.mapNotNull { genreId ->
             genres.find { it.id == genreId }?.name
         }?.take(3) ?: emptyList()
     }
 
-    // Filtrar solo los géneros que tienen contenido asociado
+    // Filtrar solo los géneros que TIENEN contenido asociado
+    // (para no mostrar géneros vacíos en la lista)
     val activeGenres = remember(contentItems, genres) {
         genres.filter { genre ->
             contentItems.any { item -> item.genres?.contains(genre.id) == true }
