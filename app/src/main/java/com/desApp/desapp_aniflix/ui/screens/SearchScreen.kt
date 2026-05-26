@@ -1,7 +1,5 @@
 package com.desApp.desapp_aniflix.ui.screens
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -13,7 +11,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -31,15 +28,52 @@ fun SearchScreen(
 ) {
     val searchQuery by viewModel.searchQuery.collectAsState()
     val searchResults by viewModel.searchResults.collectAsState()
+    val genreResults by viewModel.genreResults.collectAsState()
     val isSearching by viewModel.isSearching.collectAsState()
     val genres by viewModel.genres.collectAsState()
     val favorites by viewModel.favorites.collectAsState()
+    val contentItems by viewModel.contentItems.collectAsState()
 
     var selectedGenreId by remember { mutableStateOf<String?>(null) }
 
-    // Suggestions based on favorites content
-    val suggestions = remember(favorites) {
-        favorites.mapNotNull { it.content }
+    // ── Genre-based suggestions from favorites ──────────────────────────────
+    val suggestions = remember(favorites, contentItems) {
+        if (favorites.isEmpty() || contentItems.isEmpty()) {
+            emptyList()
+        } else {
+            // Collect unique genre IDs from favorited content
+            val favoriteGenreIds = favorites
+                .mapNotNull { it.content?.genres }
+                .flatten()
+                .distinct()
+                .toSet()
+
+            if (favoriteGenreIds.isEmpty()) {
+                emptyList()
+            } else {
+                // Find content items whose genres overlap with favorite genres,
+                // excluding items already in favorites
+                val favoriteContentIds = favorites.mapNotNull { it.contentId }.toSet()
+                contentItems
+                    .filter { item ->
+                        item.id !in favoriteContentIds && // not already favorited
+                        item.genres?.any { it in favoriteGenreIds } == true // shares a genre
+                    }
+                    .shuffled()
+                    .take(5)
+            }
+        }
+    }
+
+    // React to genre chip changes
+    LaunchedEffect(selectedGenreId) {
+        if (searchQuery.isBlank()) {
+            if (selectedGenreId != null) {
+                viewModel.filterByGenre(selectedGenreId!!)
+            } else {
+                viewModel.clearGenreResults()
+            }
+        }
     }
 
     Scaffold(
@@ -55,7 +89,12 @@ fun SearchScreen(
             item {
                 OutlinedTextField(
                     value = searchQuery,
-                    onValueChange = { viewModel.onSearchQueryChanged(it) },
+                    onValueChange = {
+                        viewModel.onSearchQueryChanged(it)
+                        if (it.isBlank() && selectedGenreId != null) {
+                            viewModel.filterByGenre(selectedGenreId!!)
+                        }
+                    },
                     placeholder = { Text("Buscar por título...", color = Color.Gray) },
                     leadingIcon = {
                         Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray)
@@ -90,7 +129,9 @@ fun SearchScreen(
                         item {
                             FilterChip(
                                 selected = selectedGenreId == null,
-                                onClick = { selectedGenreId = null },
+                                onClick = {
+                                    selectedGenreId = null
+                                },
                                 label = { Text("Todos", fontSize = 12.sp) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = Color(0xFF7C4DFF),
@@ -115,9 +156,9 @@ fun SearchScreen(
                 }
             }
 
-            // ── Search Results or Suggestions ───────────────────────────────
+            // ── Content area: search results / genre results / suggestions ──
             if (searchQuery.isNotBlank()) {
-                // Show results
+                // ── Text search results (may be combined with genre filter) ──
                 if (isSearching) {
                     item {
                         Box(
@@ -133,8 +174,14 @@ fun SearchScreen(
                 } else {
                     item {
                         Spacer(modifier = Modifier.height(12.dp))
+                        val subtitle = if (selectedGenreId != null) {
+                            val genreName = genres.find { it.id == selectedGenreId }?.name ?: ""
+                            "Resultados para \"$searchQuery\" · $genreName"
+                        } else {
+                            "Resultados para \"$searchQuery\""
+                        }
                         Text(
-                            if (searchResults.isNotEmpty()) "Resultados para \"$searchQuery\""
+                            if (searchResults.isNotEmpty()) subtitle
                             else "Sin resultados para \"$searchQuery\"",
                             color = Color.White.copy(alpha = 0.7f),
                             fontSize = 14.sp
@@ -149,15 +196,49 @@ fun SearchScreen(
                         )
                     }
                 }
+            } else if (selectedGenreId != null) {
+                // ── Genre-only browsing ────────────────────────────────────
+                if (isSearching) {
+                    item {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                color = Color(0xFF7C4DFF),
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+                    }
+                } else {
+                    val genreName = genres.find { it.id == selectedGenreId }?.name ?: ""
+                    item {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            if (genreResults.isNotEmpty()) "Contenido: $genreName"
+                            else "Sin contenido para \"$genreName\"",
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 14.sp
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    items(genreResults) { item ->
+                        SearchResultItem(
+                            item = item,
+                            genres = genres,
+                            navController = navController
+                        )
+                    }
+                }
             } else {
-                // ── Suggestions based on favorites ─────────────────────────
+                // ── Suggestions based on favorite genres ──────────────────
                 item {
                     Spacer(modifier = Modifier.height(20.dp))
                     SectionHeader("Sugerencias para ti")
                 }
 
                 if (suggestions.isNotEmpty()) {
-                    items(suggestions.take(10)) { item ->
+                    items(suggestions) { item ->
                         SearchResultItem(
                             item = item,
                             genres = genres,
@@ -178,3 +259,5 @@ fun SearchScreen(
         }
     }
 }
+
+// ─── Note: SectionHeader and SearchResultItem are defined in CatalogScreen.kt ──

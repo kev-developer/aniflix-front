@@ -43,12 +43,16 @@ fun CatalogScreen(navController: NavController, viewModel: CatalogViewModel) {
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val continueWatching by viewModel.continueWatching.collectAsState()
-    val watchLater = viewModel.watchLater
+    val favorites by viewModel.favorites.collectAsState()
+    val watchLater = remember(favorites) {
+        favorites.mapNotNull { it.content }
+    }
 
-    // Cargar Continue Watching cuando la pantalla se compone
+    // Cargar Continue Watching y Favoritos cuando la pantalla se compone
     // (útil si el ViewModel se creó antes de que el perfil estuviera seleccionado)
     LaunchedEffect(Unit) {
         viewModel.loadContinueWatchingData()
+        viewModel.loadFavorites()
     }
 
     // Seleccionar un item aleatorio para el Hero Banner

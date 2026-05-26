@@ -56,6 +56,10 @@ class CatalogViewModel : ViewModel() {
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching
 
+    // ── Genre-only results (when browsing by genre chip without text query) ──
+    private val _genreResults = MutableStateFlow<List<ContentItem>>(emptyList())
+    val genreResults: StateFlow<List<ContentItem>> = _genreResults
+
     private var searchJob: Job? = null
 
     init {
@@ -222,10 +226,23 @@ class CatalogViewModel : ViewModel() {
         }
     }
 
+    /** Filtra contenido localmente por género (sin llamar al backend). */
+    fun filterByGenre(genreId: String) {
+        _genreResults.value = _contentItems.value.filter { item ->
+            item.genres?.contains(genreId) == true
+        }
+    }
+
+    /** Limpia el filtro de género (vuelve a sugerencias) */
+    fun clearGenreResults() {
+        _genreResults.value = emptyList()
+    }
+
     /** Limpia la búsqueda y vuelve al catálogo normal */
     fun clearSearch() {
         _searchQuery.value = ""
         _searchResults.value = emptyList()
+        _genreResults.value = emptyList()
         _isSearching.value = false
         searchJob?.cancel()
     }
