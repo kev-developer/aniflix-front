@@ -78,6 +78,12 @@ fun ProfileManagementScreen(
     var editingProfile by remember { mutableStateOf<Pair<String, String>?>(null) }
     var deletingProfileId by remember { mutableStateOf<String?>(null) }
 
+    // ── REGLA: mínimo un perfil ─────────────────────────────────────────
+    // Solo se puede eliminar si quedan al menos 2 perfiles. El usuario debe
+    // conservar siempre uno para no perder dónde guardar su información
+    // (favoritos, historial, etc.).
+    val canDelete = profiles.size > 1
+
     // ── CARGA INICIAL ──────────────────────────────────────────────────
     // Al entrar a la pantalla, cargar la lista de perfiles
     LaunchedEffect(Unit) {
@@ -234,7 +240,11 @@ fun ProfileManagementScreen(
                         // ── Botón ELIMINAR ──
                         // Al hacer clic, guarda el id en deletingProfileId.
                         // Esto activa el diálogo de confirmación de eliminación.
+                        //
+                        // Se DESHABILITA cuando solo queda un perfil: el usuario
+                        // siempre debe conservar al menos uno para guardar su info.
                         IconButton(
+                            enabled = canDelete,
                             onClick = {
                                 deletingProfileId = profile.id
                             }
@@ -242,11 +252,28 @@ fun ProfileManagementScreen(
                             Icon(
                                 Icons.Default.Delete,
                                 contentDescription = "Eliminar",
-                                tint = Color(0xFFFF4081),  // Rosado (peligro/eliminar)
+                                // Atenuado cuando está deshabilitado
+                                tint = if (canDelete) Color(0xFFFF4081)
+                                       else Color(0xFFFF4081).copy(alpha = 0.3f),
                                 modifier = Modifier.size(20.dp)
                             )
                         }
                     }
+                }
+            }
+
+            // ── NOTA: mínimo un perfil ──
+            // Solo visible cuando queda un único perfil, para explicar por qué
+            // el botón de eliminar está deshabilitado.
+            if (!canDelete && profiles.isNotEmpty()) {
+                item {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Debes mantener al menos un perfil.",
+                        color = Color.White.copy(alpha = 0.5f),
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 4.dp)
+                    )
                 }
             }
 

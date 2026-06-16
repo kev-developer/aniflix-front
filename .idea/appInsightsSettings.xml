@@ -8,10 +8,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="com.desApp.desapp_aniflix" />
-                  <option name="mobileSdkAppId" value="1:641829247936:android:7787e5385ab4501cdb8625" />
-                  <option name="projectId" value="proyecto2-ad0c9" />
-                  <option name="projectNumber" value="641829247936" />
+                  <option name="appId" value="PLACEHOLDER" />
+                  <option name="mobileSdkAppId" value="" />
+                  <option name="projectId" value="" />
+                  <option name="projectNumber" value="" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />

@@ -209,6 +209,15 @@ class ProfileViewModel : ViewModel() {
      */
     fun deleteProfile(profileId: String, onSuccess: () -> Unit) {
         viewModelScope.launch {
+            // ── SALVAGUARDA: nunca quedarse sin perfiles ──
+            // El usuario debe conservar al menos un perfil; de lo contrario no
+            // habría dónde guardar sus favoritos, historial, etc. La UI ya
+            // deshabilita el botón en ese caso, pero validamos también aquí
+            // (defensa en dos capas).
+            if (_profiles.value.size <= 1) {
+                _error.value = "Debes mantener al menos un perfil."
+                return@launch
+            }
             _isLoading.value = true
             _error.value = null
             try {
