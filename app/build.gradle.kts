@@ -67,6 +67,9 @@ dependencies {
     implementation(libs.media3.ui)
     implementation(libs.media3.session)
 
+    // WorkManager (notificaciones programadas)
+    implementation(libs.androidx.work.runtime.ktx)
+
     // Firebase
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth.ktx)

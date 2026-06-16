@@ -13,12 +13,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.desApp.desapp_aniflix.auth.AuthRepository
 import com.desApp.desapp_aniflix.auth.ProfileManager
+import com.desApp.desapp_aniflix.notifications.ReminderPrefs
 import com.desApp.desapp_aniflix.ui.ProfileViewModel
 import kotlinx.coroutines.launch
 
@@ -30,8 +32,11 @@ fun MenuScreen(
     val profiles by profileViewModel.profiles.collectAsState()
     val scope = rememberCoroutineScope()
     val authRepository = remember { AuthRepository() }
+    val context = LocalContext.current
 
     var showProfileSwitcher by remember { mutableStateOf(false) }
+    var showUsernameDialog by remember { mutableStateOf(false) }
+    var currentUsername by remember { mutableStateOf(authRepository.getUsername()) }
 
     val currentProfile = remember(profiles) {
         val currentId = ProfileManager.currentProfileId
@@ -136,6 +141,14 @@ fun MenuScreen(
                 onClick = { navController.navigate("settings") }
             )
 
+            MenuOption(
+                icon = Icons.Default.Person,
+                title = "Nombre de usuario",
+                subtitle = if (!currentUsername.isNullOrBlank()) currentUsername!!
+                           else "Configúralo para poder comentar",
+                onClick = { showUsernameDialog = true }
+            )
+
             Spacer(modifier = Modifier.weight(1f))
 
             // ── Logout ─────────────────────────────────────────────────────
@@ -144,6 +157,9 @@ fun MenuScreen(
                     scope.launch {
                         profileViewModel.clearProfiles()
                         ProfileManager.clear()
+                        // Borrar el recordatorio "Sigue viendo" del usuario que sale.
+                        // (El Worker no notifica si no hay nada guardado.)
+                        ReminderPrefs.clear(context)
                         authRepository.logout()
                         navController.navigate("login") {
                             popUpTo(0) { inclusive = true }
@@ -234,6 +250,21 @@ fun MenuScreen(
             confirmButton = {
                 TextButton(onClick = { showProfileSwitcher = false }) {
                     Text("CANCELAR", color = Color(0xFF7C4DFF))
+                }
+            }
+        )
+    }
+
+    // ── Diálogo: fijar/editar el nombre de usuario de la cuenta ──
+    if (showUsernameDialog) {
+        UsernameDialog(
+            current = currentUsername ?: "",
+            onDismiss = { showUsernameDialog = false },
+            onConfirm = { name ->
+                scope.launch {
+                    val res = authRepository.updateUsername(name)
+                    showUsernameDialog = false
+                    if (res.isSuccess) currentUsername = name
                 }
             }
         )

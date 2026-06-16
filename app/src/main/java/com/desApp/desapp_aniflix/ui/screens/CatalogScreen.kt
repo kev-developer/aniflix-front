@@ -70,6 +70,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -80,6 +81,8 @@ import coil.compose.AsyncImage
 import com.desApp.desapp_aniflix.model.ContentItem
 import com.desApp.desapp_aniflix.model.ContinueWatchingItem
 import com.desApp.desapp_aniflix.model.GenreItem
+import com.desApp.desapp_aniflix.notifications.ReminderPrefs
+import com.desApp.desapp_aniflix.notifications.ReminderScheduler
 import com.desApp.desapp_aniflix.ui.CatalogViewModel
 import kotlin.random.Random
 
@@ -133,6 +136,28 @@ fun CatalogScreen(navController: NavController, viewModel: CatalogViewModel) {
     LaunchedEffect(Unit) {
         viewModel.loadContinueWatchingData()
         viewModel.loadFavorites()
+    }
+
+    // ── RECORDATORIO "Sigue viendo" ────────────────────────────────────────
+    // Cada vez que cambia la lista de "Continuar Viendo", guardamos el PRIMER
+    // item en SharedPreferences (título + ids). El Worker de WorkManager lo
+    // leerá luego para construir la notificación, incluso con la app cerrada.
+    //
+    // Además programamos un recordatorio inmediato (demo) que aparece ~15s
+    // después, para poder verlo durante la presentación sin esperar al diario.
+    val context = LocalContext.current
+    LaunchedEffect(continueWatching) {
+        val top = continueWatching.firstOrNull()
+        val content = top?.content
+        if (top != null && content != null) {
+            ReminderPrefs.saveLastContinueWatching(
+                context = context,
+                title = content.title,
+                contentId = top.contentId,
+                contentType = top.contentType
+            )
+            ReminderScheduler.scheduleDemoReminder(context)
+        }
     }
 
     // ── HERO BANNER ────────────────────────────────────────────────────────

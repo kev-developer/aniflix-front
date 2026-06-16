@@ -40,6 +40,7 @@ import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.tasks.await
@@ -131,6 +132,37 @@ class AuthRepository {
     suspend fun isEmailVerified(): Boolean {
         reloadUser()
         return auth.currentUser?.isEmailVerified == true
+    }
+
+    /**
+     * Nombre de usuario de la CUENTA (Firebase Auth displayName).
+     * Es por cuenta, no por perfil. Devuelve null/"" si aún no se ha establecido.
+     */
+    fun getUsername(): String? = auth.currentUser?.displayName
+
+    /** true si la cuenta ya tiene un nombre de usuario configurado. */
+    fun hasUsername(): Boolean = !auth.currentUser?.displayName.isNullOrBlank()
+
+    /**
+     * Establece/actualiza el nombre de usuario de la cuenta (displayName).
+     *
+     * Tras actualizarlo, FORZAMOS un refresco del ID Token (getIdToken(true))
+     * para que el backend reciba el nuevo nombre de inmediato en req.user.name
+     * (de lo contrario el token cacheado seguiría con el nombre viejo hasta 1h).
+     */
+    suspend fun updateUsername(name: String): Result<Unit> {
+        return try {
+            val user = auth.currentUser
+                ?: return Result.failure(Exception("No hay usuario autenticado"))
+            val request = UserProfileChangeRequest.Builder()
+                .setDisplayName(name.trim())
+                .build()
+            user.updateProfile(request).await()
+            user.getIdToken(true).await() // refresca el token con el nuevo displayName
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(Exception("Error al guardar el nombre de usuario: ${e.localizedMessage}"))
+        }
     }
 
     /** Cierra sesión (Firebase Auth SDK) */

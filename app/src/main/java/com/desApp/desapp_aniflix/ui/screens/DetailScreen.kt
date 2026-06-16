@@ -69,12 +69,17 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.desApp.desapp_aniflix.auth.ProfileManager
+import com.desApp.desapp_aniflix.model.CommentSummary
 import com.desApp.desapp_aniflix.model.ContentItem
 import com.desApp.desapp_aniflix.model.Episode
+import com.desApp.desapp_aniflix.network.CommentRetrofitClient
 import com.desApp.desapp_aniflix.network.ContentRetrofitClient
 import com.desApp.desapp_aniflix.network.HistoryRetrofitClient
 import com.desApp.desapp_aniflix.ui.CatalogViewModel
 import kotlinx.coroutines.launch
+
+/** Episodio (o película) cuyos comentarios se están mostrando en la hoja. */
+private data class CommentTarget(val season: Int, val episode: Int, val label: String)
 
 @Composable
 fun DetailScreen(
@@ -93,6 +98,11 @@ fun DetailScreen(
     val genres by viewModel.genres.collectAsState()
     val favorites by viewModel.favorites.collectAsState()
     val scope = rememberCoroutineScope()
+
+    // ── Comentarios / valoración ──
+    var commentSummary by remember { mutableStateOf<CommentSummary?>(null) }   // promedio global del contenido
+    var commentsTarget by remember { mutableStateOf<CommentTarget?>(null) }     // hoja abierta (o null)
+    var summaryRefresh by remember { mutableIntStateOf(0) }                     // bump para recargar el promedio
 
     // Función helper para navegar al player con un episodio específico
     fun navigateToPlayer(ep: Episode?, resetProgress: Boolean = false) {
@@ -203,6 +213,15 @@ fun DetailScreen(
             } finally {
                 isLoading = false
             }
+        }
+    }
+
+    // Cargar la valoración global del contenido (promedio de estrellas de sus episodios)
+    LaunchedEffect(contentId, summaryRefresh) {
+        if (contentId != null) {
+            try {
+                commentSummary = CommentRetrofitClient.commentApiService.getSummary(contentId).data
+            } catch (_: Exception) { /* sin valoraciones aún */ }
         }
     }
 
@@ -345,6 +364,17 @@ fun DetailScreen(
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                         }
+                        // ── Valoración global (promedio de reseñas) ──
+                        val cs = commentSummary
+                        if (cs != null && cs.ratingCount > 0) {
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "★ ${cs.average}",
+                                color = Color(0xFFFFC107),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
@@ -400,6 +430,22 @@ fun DetailScreen(
                             if (isFav) "En mi lista" else "Añadir a mi lista",
                             fontWeight = FontWeight.Bold
                         )
+                    }
+
+                    // ── Comentarios (películas: un único hilo de reseñas) ──
+                    if (item.contentType == "pelicula") {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedButton(
+                            onClick = { commentsTarget = CommentTarget(0, 0, item.title) },
+                            modifier = Modifier.fillMaxWidth().height(56.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                            border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF1A1D29)),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Text("💬", fontSize = 18.sp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Comentarios", fontWeight = FontWeight.Bold)
+                        }
                     }
 
                     // ── Descripción ──────────────────────────────────────
@@ -507,6 +553,18 @@ fun DetailScreen(
                                             )
                                         }
 
+                                        // Botón de comentarios del episodio
+                                        IconButton(onClick = {
+                                            val seasonNum = item.seasons?.getOrNull(selectedSeasonIndex)?.number
+                                                ?: (selectedSeasonIndex + 1)
+                                            val epNum = episode.number ?: 0
+                                            commentsTarget = CommentTarget(
+                                                seasonNum, epNum, "T$seasonNum · EP $epNum"
+                                            )
+                                        }) {
+                                            Text("💬", fontSize = 18.sp)
+                                        }
+
                                         Icon(
                                             Icons.Default.PlayArrow,
                                             contentDescription = "Reproducir",
@@ -534,6 +592,21 @@ fun DetailScreen(
                     .background(Color.Black.copy(alpha = 0.4f))
             ) {
                 Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = Color.White)
+            }
+
+            // ── Hoja de comentarios del episodio/película ──
+            commentsTarget?.let { t ->
+                EpisodeCommentsSheet(
+                    contentId = item.id,
+                    contentType = item.contentType,
+                    seasonNumber = t.season,
+                    episodeNumber = t.episode,
+                    episodeLabel = t.label,
+                    onDismiss = {
+                        commentsTarget = null
+                        summaryRefresh++ // refresca el promedio del header
+                    }
+                )
             }
         }
     } else {

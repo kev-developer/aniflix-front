@@ -43,9 +43,14 @@
 // =============================================================================
 package com.desApp.desapp_aniflix
 
+import android.Manifest
+import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -56,6 +61,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
@@ -69,6 +75,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.desApp.desapp_aniflix.auth.AuthRepository
 import com.desApp.desapp_aniflix.auth.ProfileManager
+import com.desApp.desapp_aniflix.notifications.NotificationHelper
+import com.desApp.desapp_aniflix.notifications.ReminderScheduler
 import com.desApp.desapp_aniflix.ui.CatalogViewModel
 import com.desApp.desapp_aniflix.ui.ProfileViewModel
 import com.desApp.desapp_aniflix.ui.screens.*
@@ -105,8 +113,22 @@ private val bottomNavItems = listOf(
 // 2. El tema Material3
 // 3. El contenido Compose (AniflixApp)
 class MainActivity : ComponentActivity() {
+
+    // ── Deep-link pendiente ──────────────────────────────────────────────────
+    // Cuando la app se abre (o vuelve al frente) tocando la notificación
+    // "Sigue viendo", guardamos aquí (contentType, contentId). Un LaunchedEffect
+    // en AniflixApp observa este estado y navega al DetailScreen.
+    private val pendingDeepLink = mutableStateOf<Pair<String, String>?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Programar el recordatorio diario "Sigue viendo" (WorkManager)
+        ReminderScheduler.scheduleDailyReminder(this)
+
+        // Si la app se abrió DESDE la notificación, leer a qué contenido ir
+        readDeepLinkFromIntent(intent)
+
         setContent {
             // ── Paleta de colores personalizada ──────────────────────────
             // Estos colores definen la identidad visual de Aniflix
@@ -130,9 +152,33 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    AniflixApp() // ← Aquí empieza la app real
+                    AniflixApp(
+                        pendingDeepLink = pendingDeepLink.value,
+                        onDeepLinkHandled = { pendingDeepLink.value = null }
+                    ) // ← Aquí empieza la app real
                 }
             }
+        }
+    }
+
+    // ── onNewIntent ─────────────────────────────────────────────────────────
+    // Se llama cuando la app YA estaba abierta (launchMode="singleTop") y el
+    // usuario toca la notificación. Actualizamos el Intent y leemos el deep-link.
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        readDeepLinkFromIntent(intent)
+    }
+
+    /**
+     * Extrae (contentType, contentId) de los extras del Intent que coloca la
+     * notificación. Si están presentes, los guarda en pendingDeepLink.
+     */
+    private fun readDeepLinkFromIntent(intent: Intent?) {
+        val type = intent?.getStringExtra(NotificationHelper.EXTRA_CONTENT_TYPE)
+        val id = intent?.getStringExtra(NotificationHelper.EXTRA_CONTENT_ID)
+        if (!type.isNullOrBlank() && !id.isNullOrBlank()) {
+            pendingDeepLink.value = type to id
         }
     }
 }
@@ -158,11 +204,44 @@ class MainActivity : ComponentActivity() {
 //   y comparten el mismo estado.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AniflixApp() {
+private fun AniflixApp(
+    pendingDeepLink: Pair<String, String>? = null,
+    onDeepLinkHandled: () -> Unit = {}
+) {
     val navController = rememberNavController()
     val catalogViewModel: CatalogViewModel = viewModel()
     val profileViewModel: ProfileViewModel = viewModel()
     val authRepository = remember { AuthRepository() }
+    val context = LocalContext.current
+
+    // ── PERMISO DE NOTIFICACIONES (Android 13+) ─────────────────────────────
+    // Desde Android 13 (API 33) hay que pedir POST_NOTIFICATIONS en runtime.
+    // rememberLauncherForActivityResult lanza el diálogo del sistema y recibe
+    // el resultado (aquí no necesitamos hacer nada con él).
+    val notifPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* concedido o no: la app sigue funcionando igual */ }
+
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            !NotificationHelper.hasNotificationPermission(context)
+        ) {
+            notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    // ── DEEP-LINK desde la notificación "Sigue viendo" ──────────────────────
+    // Cuando pendingDeepLink trae (contentType, contentId), navegamos al detalle.
+    // Solo si ya hay un perfil seleccionado: tras un arranque en frío desde la
+    // noti, ProfileManager está vacío y el usuario pasa primero por la selección
+    // de perfil; en ese caso ignoramos el deep-link de forma segura.
+    LaunchedEffect(pendingDeepLink) {
+        val link = pendingDeepLink ?: return@LaunchedEffect
+        if (ProfileManager.hasProfile()) {
+            navController.navigate("detail/${link.first}/${link.second}")
+        }
+        onDeepLinkHandled()
+    }
 
     // ── Estado de autenticación ─────────────────────────────────────────────
     // Se inicializa con el estado actual de Firebase Auth
