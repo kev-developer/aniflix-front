@@ -37,6 +37,7 @@ import com.desApp.desapp_aniflix.auth.AuthRepository
 import com.desApp.desapp_aniflix.model.AddCommentRequest
 import com.desApp.desapp_aniflix.model.Comment
 import com.desApp.desapp_aniflix.model.CommentStats
+import com.desApp.desapp_aniflix.model.UpdateCommentRequest
 import com.desApp.desapp_aniflix.network.CommentRetrofitClient
 import kotlinx.coroutines.launch
 
@@ -77,6 +78,7 @@ fun EpisodeCommentsSheet(
     var isPosting by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var showUsernameDialog by remember { mutableStateOf(false) }
+    var editMode by remember { mutableStateOf(false) }   // true = estoy editando MI comentario
 
     suspend fun reload() {
         isLoading = true
@@ -132,12 +134,42 @@ fun EpisodeCommentsSheet(
         scope.launch {
             try {
                 CommentRetrofitClient.commentApiService.deleteComment(id)
-                reload()
+                editMode = false
+                reload()   // al borrarlo, miComentario será null → reaparece el formulario
             } catch (_: Exception) {
                 error = "No se pudo eliminar el comentario"
             }
         }
     }
+
+    // Guarda los cambios al EDITAR mi comentario (PUT /api/comments/{id}).
+    fun guardarEdicion(id: String) {
+        if (newText.isBlank()) return
+        scope.launch {
+            isPosting = true
+            error = null
+            try {
+                CommentRetrofitClient.commentApiService.updateComment(
+                    id,
+                    UpdateCommentRequest(
+                        text = newText.trim(),
+                        rating = if (newRating > 0) newRating else null
+                    )
+                )
+                newText = ""
+                newRating = 0
+                editMode = false
+                reload()
+            } catch (_: Exception) {
+                error = "No se pudo editar el comentario"
+            } finally {
+                isPosting = false
+            }
+        }
+    }
+
+    // Mi comentario en este episodio (si ya comenté). Solo se permite UNO por cuenta.
+    val miComentario = comments.find { it.uid == currentUid }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -175,43 +207,97 @@ fun EpisodeCommentsSheet(
 
             Spacer(Modifier.height(16.dp))
 
-            // ── Caja para escribir ──
-            StarSelector(rating = newRating, onRatingChange = { newRating = it })
-            Spacer(Modifier.height(8.dp))
-            TextField(
-                value = newText,
-                onValueChange = { newText = it },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Escribe tu reseña...", color = Color.Gray) },
-                maxLines = 4,
-                enabled = !isPosting,
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color.Black.copy(alpha = 0.3f),
-                    unfocusedContainerColor = Color.Black.copy(alpha = 0.3f),
-                    focusedIndicatorColor = PRIMARY,
-                    unfocusedIndicatorColor = Color.Transparent,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    cursorColor = PRIMARY
-                ),
-                shape = RoundedCornerShape(12.dp)
-            )
-            Spacer(Modifier.height(8.dp))
-            Button(
-                onClick = { publish() },
-                enabled = newText.isNotBlank() && !isPosting,
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PRIMARY),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                if (isPosting) {
-                    CircularProgressIndicator(
-                        color = Color.White,
-                        strokeWidth = 2.dp,
-                        modifier = Modifier.size(18.dp)
-                    )
-                } else {
-                    Text("PUBLICAR", fontWeight = FontWeight.Bold)
+            // ── Mi comentario: el formulario (si NO he comentado o estoy editando),
+            //    o mi comentario en modo lectura con Editar / Eliminar ──
+            if (miComentario != null && !editMode) {
+                Surface(
+                    color = PRIMARY.copy(alpha = 0.12f),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text("Tu comentario", color = PRIMARY, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        if (miComentario.rating != null && miComentario.rating in 1..5) {
+                            Text(
+                                "★".repeat(miComentario.rating) + "☆".repeat(5 - miComentario.rating),
+                                color = STAR_GOLD, fontSize = 13.sp
+                            )
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Text(miComentario.text, color = Color.White.copy(alpha = 0.9f), fontSize = 14.sp)
+                        Spacer(Modifier.height(10.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = {
+                                    // Entrar en modo edición con los valores actuales
+                                    newText = miComentario.text
+                                    newRating = miComentario.rating ?: 0
+                                    editMode = true
+                                },
+                                shape = RoundedCornerShape(10.dp)
+                            ) { Text("Editar") }
+                            OutlinedButton(
+                                onClick = { deleteComment(miComentario.id) },
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF4081)),
+                                shape = RoundedCornerShape(10.dp)
+                            ) { Text("Eliminar") }
+                        }
+                    }
+                }
+                Text(
+                    "Solo puedes dejar un comentario. Edítalo o elimínalo para volver a comentar.",
+                    color = Color.White.copy(alpha = 0.4f),
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+            } else {
+                // ── Formulario (nuevo comentario o edición) ──
+                StarSelector(rating = newRating, onRatingChange = { newRating = it })
+                Spacer(Modifier.height(8.dp))
+                TextField(
+                    value = newText,
+                    onValueChange = { newText = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Escribe tu reseña...", color = Color.Gray) },
+                    maxLines = 4,
+                    enabled = !isPosting,
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Black.copy(alpha = 0.3f),
+                        unfocusedContainerColor = Color.Black.copy(alpha = 0.3f),
+                        focusedIndicatorColor = PRIMARY,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        cursorColor = PRIMARY
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                Spacer(Modifier.height(8.dp))
+                Button(
+                    onClick = {
+                        if (editMode && miComentario != null) guardarEdicion(miComentario.id)
+                        else publish()
+                    },
+                    enabled = newText.isNotBlank() && !isPosting,
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = PRIMARY),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    if (isPosting) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    } else {
+                        Text(if (editMode) "GUARDAR CAMBIOS" else "PUBLICAR", fontWeight = FontWeight.Bold)
+                    }
+                }
+                if (editMode) {
+                    TextButton(
+                        onClick = { editMode = false; newText = ""; newRating = 0 },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Cancelar", color = Color.Gray) }
                 }
             }
 
@@ -224,16 +310,18 @@ fun EpisodeCommentsSheet(
             HorizontalDivider(color = Color.Gray.copy(alpha = 0.2f))
             Spacer(Modifier.height(8.dp))
 
-            // ── Lista de comentarios ──
+            // ── Lista de comentarios de OTROS usuarios (el mío va arriba) ──
+            val otros = comments.filter { it.uid != currentUid }
             when {
                 isLoading -> {
                     Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(color = PRIMARY, modifier = Modifier.size(28.dp))
                     }
                 }
-                comments.isEmpty() -> {
+                otros.isEmpty() -> {
                     Text(
-                        "Sé el primero en comentar este episodio.",
+                        if (miComentario != null) "Aún no hay otros comentarios."
+                        else "Sé el primero en comentar este episodio.",
                         color = Color.White.copy(alpha = 0.5f),
                         fontSize = 14.sp,
                         modifier = Modifier.padding(vertical = 16.dp)
@@ -248,11 +336,11 @@ fun EpisodeCommentsSheet(
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        comments.forEach { c ->
+                        otros.forEach { c ->
                             CommentRow(
                                 comment = c,
-                                canDelete = c.uid == currentUid,
-                                onDelete = { deleteComment(c.id) }
+                                canDelete = false,   // no puedes borrar comentarios de otras cuentas
+                                onDelete = { }
                             )
                         }
                     }

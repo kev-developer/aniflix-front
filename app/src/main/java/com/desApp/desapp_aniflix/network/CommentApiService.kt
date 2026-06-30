@@ -17,6 +17,7 @@ import com.desApp.desapp_aniflix.model.CommentSingleResponse
 import com.desApp.desapp_aniflix.model.CommentSummaryResponse
 import com.desApp.desapp_aniflix.model.CommentsResponse
 import com.desApp.desapp_aniflix.model.DeleteResponse
+import com.desApp.desapp_aniflix.model.UpdateCommentRequest
 import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
@@ -26,6 +27,7 @@ import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 import java.util.concurrent.TimeUnit
@@ -60,6 +62,16 @@ interface CommentApiService {
     @POST("api/comments")
     suspend fun addComment(
         @Body body: AddCommentRequest
+    ): CommentSingleResponse
+
+    /**
+     * PUT /api/comments/{id}
+     * Edita MI comentario (solo el dueño; el backend valida el uid del token).
+     */
+    @PUT("api/comments/{id}")
+    suspend fun updateComment(
+        @Path("id") id: String,
+        @Body body: UpdateCommentRequest
     ): CommentSingleResponse
 
     /**

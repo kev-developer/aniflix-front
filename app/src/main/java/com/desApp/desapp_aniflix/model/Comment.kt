@@ -68,6 +68,12 @@ data class AddCommentRequest(
     val rating: Int? = null
 )
 
+/** Body de PUT /api/comments/{id} — editar MI comentario (texto + estrellas). */
+data class UpdateCommentRequest(
+    val text: String,
+    val rating: Int? = null
+)
+
 /** Respuesta de POST /api/comments. */
 data class CommentSingleResponse(
     val success: Boolean,
